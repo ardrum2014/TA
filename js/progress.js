@@ -20,6 +20,10 @@ const ProgressModule = {
 
   init() {
     this.progressMap = StorageManager.get(StorageManager.KEYS.PROGRESS, this.getDefaultSubjectsMap());
+    if (!this.progressMap || typeof this.progressMap !== 'object' || Array.isArray(this.progressMap)) {
+      this.progressMap = this.getDefaultSubjectsMap();
+      StorageManager.set(StorageManager.KEYS.PROGRESS, this.progressMap);
+    }
     this.bindEvents();
     this.render();
 

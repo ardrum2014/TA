@@ -9,6 +9,11 @@ const TimetableModule = {
 
   init() {
     this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+    if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0) {
+      this.data = StorageManager.getDefaultTimetable();
+      StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+    }
+
     this.bindEvents();
     this.renderGrid();
     this.updateSidebarWidget();
@@ -17,6 +22,10 @@ const TimetableModule = {
     setInterval(() => this.updateSidebarWidget(), 30000);
     window.addEventListener('rosterUpdated', () => {
       this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+      if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0) {
+        this.data = StorageManager.getDefaultTimetable();
+        StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+      }
       this.renderGrid();
       this.updateSidebarWidget();
     });
@@ -508,6 +517,11 @@ const TimetableModule = {
   renderGrid() {
     const container = document.getElementById('timetableGridContainer');
     if (!container) return;
+
+    if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0) {
+      this.data = StorageManager.getDefaultTimetable();
+      StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+    }
 
     const periods = this.data.periods || [];
     const grid = this.data.grid || {};
