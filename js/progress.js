@@ -588,13 +588,12 @@ const ProgressModule = {
       const doneCount = sub.chapters.filter(c => c.done).length;
       const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
-      return `
-        <div class="progress-card margin-bottom" style="background: var(--bg-card); padding: 18px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
-          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 class="subject-title" style="margin:0; font-size:1.25rem; font-family:var(--font-family-title); cursor:pointer;" title="點擊修改名稱" onclick="ProgressModule.renameSubject('${sub.id}')">
-              ${sub.title} <i class="fa-solid fa-pen-to-square" style="font-size:0.8rem; opacity:0.6;"></i>
+        <div class="progress-card margin-bottom">
+          <div class="card-header">
+            <h3 class="subject-title" title="點擊修改名稱" onclick="ProgressModule.renameSubject('${sub.id}')">
+              <span>${sub.title}</span> <i class="fa-solid fa-pen-to-square" style="font-size:0.85rem; opacity:0.6;"></i>
             </h3>
-            <div class="card-header-actions" style="display:flex; gap:8px;">
+            <div class="card-header-actions">
               <button class="btn btn-sm btn-secondary" title="匯出此科目的課程進度與作業繳交總表 Excel" onclick="ProgressModule.exportSubjectExcel('${sub.id}')">
                 <i class="fa-solid fa-file-excel"></i> 匯出此科 Excel
               </button>
