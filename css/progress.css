@@ -1,8 +1,9 @@
 /* 課程進度樣式 */
 .progress-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 24px;
+  width: 100%;
 }
 
 .progress-card {
@@ -11,15 +12,35 @@
   border: 1px solid var(--border-color);
   padding: 20px;
   box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+.progress-card .card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color);
 }
 
 .card-header-actions {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .subject-title {
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   transition: color var(--transition-fast);
 }
 
