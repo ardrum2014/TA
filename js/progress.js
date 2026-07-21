@@ -627,6 +627,7 @@ const ProgressModule = {
       const doneCount = sub.chapters.filter(c => c.done).length;
       const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
+      return `
         <div class="progress-card margin-bottom">
           <div class="card-header">
             <h3 class="subject-title" title="點擊修改名稱" onclick="ProgressModule.renameSubject('${sub.id}')">

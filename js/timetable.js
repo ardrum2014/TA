@@ -14,21 +14,64 @@ const TimetableModule = {
       StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
     }
 
+    // 跨週自動檢查並清空過期代課註記
+    this.checkAndClearExpiredSubstitutes();
+
     this.bindEvents();
     this.renderGrid();
     this.updateSidebarWidget();
 
-    // 每一分鐘或切換班級時自動更新提醒 Widget
-    setInterval(() => this.updateSidebarWidget(), 30000);
+    // 每一分鐘自動更新提醒 Widget 與檢查跨週代課重置
+    setInterval(() => {
+      this.checkAndClearExpiredSubstitutes();
+      this.updateSidebarWidget();
+    }, 30000);
+
     window.addEventListener('rosterUpdated', () => {
       this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
       if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0) {
         this.data = StorageManager.getDefaultTimetable();
         StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
       }
+      this.checkAndClearExpiredSubstitutes();
       this.renderGrid();
       this.updateSidebarWidget();
     });
+  },
+
+  // 取得西元 ISO 週數 ID (例如: 2026-W30)
+  getWeekId(d = new Date()) {
+    const target = new Date(d.valueOf());
+    const dayNr = (d.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+      target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+    }
+    const weekNum = 1 + Math.round((firstThursday - target.valueOf()) / 604800000);
+    return `${target.getFullYear()}-W${weekNum}`;
+  },
+
+  // 跨週自動清空過期的代課紀錄 (維持一週，時間跨週即消失)
+  checkAndClearExpiredSubstitutes() {
+    if (!this.data || !this.data.grid) return;
+    const currentWeekId = this.getWeekId(new Date());
+    let modified = false;
+
+    Object.keys(this.data.grid).forEach(key => {
+      const cell = this.data.grid[key];
+      if (cell && cell.substituteWeekId && cell.substituteWeekId !== currentWeekId) {
+        cell.substitute = '';
+        cell.substituteNote = '';
+        delete cell.substituteWeekId;
+        modified = true;
+      }
+    });
+
+    if (modified) {
+      StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+    }
   },
 
   saveData() {
@@ -43,7 +86,7 @@ const TimetableModule = {
     if (btn) {
       btn.innerHTML = this.isEditing ? 
         '<i class="fa-solid fa-check"></i> 💾 完成編輯' : 
-        '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯課表';
+        '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯學期課表';
       btn.className = this.isEditing ? 'btn btn-success' : 'btn btn-primary';
     }
     this.renderGrid();
@@ -53,7 +96,6 @@ const TimetableModule = {
     document.getElementById('toggleTimetableEditBtn')?.addEventListener('click', () => this.toggleEdit());
     document.getElementById('setupPeriodTimesBtn')?.addEventListener('click', () => this.openPeriodTimesModal());
     document.getElementById('exportGoogleCalendarBtn')?.addEventListener('click', () => this.exportToICS());
-    document.getElementById('importGoogleCalendarBtn')?.addEventListener('click', () => this.openGoogleImportModal());
     document.getElementById('printTimetableBtn')?.addEventListener('click', () => window.print());
   },
 
@@ -614,12 +656,25 @@ const TimetableModule = {
     }
   },
 
-  // 點擊格子開啟編輯彈窗
+  // 點擊格子開啟對應彈窗
   handleCellClick(day, period) {
     const cellKey = `${day}_${period}`;
-    const cell = this.data.grid[cellKey] || { className: '', subject: '', location: '', substitute: '', substituteNote: '' };
+    const cell = this.data.grid[cellKey] || { className: '', subject: '', location: '', substitute: '', substituteNote: '', substituteWeekId: '' };
     const periodObj = (this.data.periods || []).find(p => p.period === period) || { name: `第 ${period} 節` };
+    const dayName = this.DAY_NAMES[day] || `週${day}`;
 
+    if (this.isEditing) {
+      // 點擊【✏️ 編輯學期課表】模式下：修改固定課表 (班級、科目、地點)
+      this.openScheduleEditModal(day, period, cell, periodObj, dayName);
+    } else {
+      // 平常狀況點選：開啟【本週代課 / 請假 / 調課登記】彈窗
+      this.openSubstituteModal(day, period, cell, periodObj, dayName);
+    }
+  },
+
+  // A. 平常模式彈窗：登錄 / 編輯 / 清除 本週代課註記 (維持一週，跨週自動清空)
+  openSubstituteModal(day, period, cell, periodObj, dayName) {
+    const cellKey = `${day}_${period}`;
     const modalBody = document.getElementById('modalBody');
     const modalTitle = document.getElementById('modalTitle');
     const backdrop = document.getElementById('modalBackdrop');
@@ -629,17 +684,108 @@ const TimetableModule = {
 
     if (!backdrop || !modalBody) return;
 
-    const dayName = this.DAY_NAMES[day] || `週${day}`;
-    modalTitle.textContent = `✏️ 編輯課表格子（${dayName} ${periodObj.name}）`;
+    modalTitle.textContent = `📋 登錄本週代課與調課紀錄（${dayName} ${periodObj.name}）`;
 
-    // 取得所有可用班級選單
+    modalBody.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 0.95rem;">
+        <div style="padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="font-weight: bold; color: var(--color-terracotta); font-size: 1.05rem;">
+            ${cell.className || '無固定班級'} ${cell.subject ? `— ${cell.subject}` : ''}
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+            上課地點：${cell.location || '無登記教室'} (${periodObj.startTime || ''} - ${periodObj.endTime || ''})
+          </div>
+        </div>
+
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block; color: var(--color-amber);">
+            <i class="fa-solid fa-user-pen"></i> 本週代課 / 請假 / 調課人員：
+          </label>
+          <input type="text" id="cellSubstituteInput" class="form-control" value="${cell.substitute || ''}" placeholder="例如：由張明雄老師代課 / 代502班">
+        </div>
+
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">
+            <i class="fa-solid fa-clipboard-list"></i> 代課事由 / 說明 (選填)：
+          </label>
+          <input type="text" id="cellSubstituteNoteInput" class="form-control" value="${cell.substituteNote || ''}" placeholder="例如：教務處公假派代 / 請事假">
+        </div>
+
+        <div style="padding: 10px; border-radius: 6px; background: rgba(217, 119, 6, 0.1); border: 1px dashed var(--color-amber); font-size: 0.82rem; color: var(--text-main);">
+          💡 <b>跨週自動重置機制</b>：本代課紀錄僅維持本週生效。當時間跨至下一週時，系統將全自動清空備註並恢復固定課表！
+        </div>
+
+        ${cell.substitute ? `
+          <div style="text-align: right;">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="clearSubBtn">
+              <i class="fa-solid fa-trash"></i> 清除本節代課紀錄
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '💾 儲存本週代課';
+    confirmBtn.className = 'btn btn-accent';
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+      confirmBtn.textContent = '確定';
+      confirmBtn.className = 'btn btn-primary';
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    document.getElementById('clearSubBtn')?.addEventListener('click', () => {
+      if (this.data.grid[cellKey]) {
+        this.data.grid[cellKey].substitute = '';
+        this.data.grid[cellKey].substituteNote = '';
+        delete this.data.grid[cellKey].substituteWeekId;
+        this.saveData();
+      }
+      closeModal();
+    });
+
+    confirmBtn.onclick = () => {
+      const substitute = document.getElementById('cellSubstituteInput').value.trim();
+      const substituteNote = document.getElementById('cellSubstituteNoteInput').value.trim();
+
+      if (!this.data.grid[cellKey]) {
+        this.data.grid[cellKey] = { className: '', subject: '', location: '' };
+      }
+
+      this.data.grid[cellKey].substitute = substitute;
+      this.data.grid[cellKey].substituteNote = substituteNote;
+      this.data.grid[cellKey].substituteWeekId = this.getWeekId(new Date());
+
+      this.saveData();
+      closeModal();
+    };
+  },
+
+  // B. 編輯學期課表模式彈窗 (點擊右上角「✏️ 編輯學期課表」時才可以修改班級、科目、地點)
+  openScheduleEditModal(day, period, cell, periodObj, dayName) {
+    const cellKey = `${day}_${period}`;
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `✏️ 編輯學期固定課表（${dayName} ${periodObj.name}）`;
+
     const classesMap = StorageManager.get(StorageManager.KEYS.CLASSES, StorageManager.getDefaultClasses());
     const classOptions = Object.keys(classesMap).sort((a, b) => a.localeCompare(b, 'zh-TW', { numeric: true }));
 
     modalBody.innerHTML = `
       <form id="cellEditForm" style="display: flex; flex-direction: column; gap: 12px;">
         <div>
-          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課班級：</label>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">固定上課班級：</label>
           <input type="text" id="cellClassName" list="classOptionsList" class="form-control" value="${cell.className || ''}" placeholder="例如：501班 或 401班 (留空代表空堂)">
           <datalist id="classOptionsList">
             ${classOptions.map(cls => `<option value="${cls}">`).join('')}
@@ -647,28 +793,20 @@ const TimetableModule = {
         </div>
 
         <div>
-          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課科目 / 活動名稱：</label>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">固定科目 / 活動名稱：</label>
           <input type="text" id="cellSubject" class="form-control" value="${cell.subject || ''}" placeholder="例如：生活科技、資訊科技、班會">
         </div>
 
         <div>
-          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課教室 / 地點：</label>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">固定教室 / 上課地點：</label>
           <input type="text" id="cellLocation" class="form-control" value="${cell.location || ''}" placeholder="例如：生科教室、電腦教室">
-        </div>
-
-        <div style="padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
-          <label style="font-weight: bold; margin-bottom: 6px; display: block; color: var(--color-terracotta);">
-            <i class="fa-solid fa-user-group"></i> 代課 / 請假 / 調課紀錄 (選填)：
-          </label>
-          <input type="text" id="cellSubstitute" class="form-control" value="${cell.substitute || ''}" placeholder="例如：由張明雄老師代課 / 代陳老師502班">
-          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-            提示：若有教務處派代或請假代課，輸入備註將會高亮顯示於課表與下一節提醒中！
-          </div>
         </div>
       </form>
     `;
 
     backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '💾 儲存學期課表';
+    confirmBtn.className = 'btn btn-primary';
 
     const closeModal = () => {
       backdrop.classList.add('hidden');
@@ -681,7 +819,6 @@ const TimetableModule = {
       const className = document.getElementById('cellClassName').value.trim();
       const subject = document.getElementById('cellSubject').value.trim();
       const location = document.getElementById('cellLocation').value.trim();
-      const substitute = document.getElementById('cellSubstitute').value.trim();
 
       if (!className) {
         delete this.data.grid[cellKey];
@@ -690,7 +827,9 @@ const TimetableModule = {
           className,
           subject,
           location,
-          substitute
+          substitute: cell.substitute || '',
+          substituteNote: cell.substituteNote || '',
+          substituteWeekId: cell.substituteWeekId || ''
         };
       }
 
