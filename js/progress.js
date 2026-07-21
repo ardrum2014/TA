@@ -122,35 +122,39 @@ const ProgressModule = {
     this.render();
   },
 
+  addSubject() {
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    const title = prompt(`請輸入【${activeClass}】的新增科目/單元名稱：`);
+    if (!title || !title.trim()) return;
+
+    const subjects = this.getActiveSubjects();
+    subjects.push({
+      id: Date.now().toString(),
+      title: title.trim(),
+      chapters: []
+    });
+
+    this.saveActiveSubjects(subjects);
+  },
+
+  downloadSample() {
+    const sampleData = [
+      { '科目': '生活科技', '章節': '第一章 電與控制', '作業名稱': '學習單 1-1', '指派班級': '401班, 402班' },
+      { '科目': '生活科技', '章節': '第一章 電與控制', '作業名稱': '第一章 習作', '指派班級': '401班, 402班' },
+      { '科目': '生活科技', '章節': '第二章 機電整合', '作業名稱': '實作報告', '指派班級': '401班, 402班' },
+      { '科目': '國語', '章節': '第一課 蘋果樹的秘密', '作業名稱': '第一課 習作', '指派班級': '401班' },
+      { '科目': '數學', '章節': '單元一 多位數與因數分解', '作業名稱': '單元一 練習本', '指派班級': '401班, 402班, 501班' }
+    ];
+    const timestamp = StorageManager.getFormattedTimestamp();
+    StorageManager.exportExcel(sampleData, `${timestamp}_課程進度與作業匯入範例檔.xlsx`);
+  },
+
   bindEvents() {
     // 新增科目
-    document.getElementById('addProgressSubjectBtn')?.addEventListener('click', () => {
-      const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
-      const title = prompt(`請輸入【${activeClass}】的新增科目/單元名稱：`);
-      if (!title || !title.trim()) return;
-
-      const subjects = this.getActiveSubjects();
-      subjects.push({
-        id: Date.now().toString(),
-        title: title.trim(),
-        chapters: []
-      });
-
-      this.saveActiveSubjects(subjects);
-    });
+    document.getElementById('addProgressSubjectBtn')?.addEventListener('click', () => this.addSubject());
 
     // 下載進度與作業匯入範例檔
-    document.getElementById('downloadProgressSampleBtn')?.addEventListener('click', () => {
-      const sampleData = [
-        { '科目': '生活科技', '章節': '第一章 電與控制', '作業名稱': '學習單 1-1', '指派班級': '401班, 402班' },
-        { '科目': '生活科技', '章節': '第一章 電與控制', '作業名稱': '第一章 習作', '指派班級': '401班, 402班' },
-        { '科目': '生活科技', '章節': '第二章 機電整合', '作業名稱': '實作報告', '指派班級': '401班, 402班' },
-        { '科目': '國語', '章節': '第一課 蘋果樹的秘密', '作業名稱': '第一課 習作', '指派班級': '401班' },
-        { '科目': '數學', '章節': '單元一 多位數與因數分解', '作業名稱': '單元一 練習本', '指派班級': '401班, 402班, 501班' }
-      ];
-      const timestamp = StorageManager.getFormattedTimestamp();
-      StorageManager.exportExcel(sampleData, `${timestamp}_課程進度與作業匯入範例檔.xlsx`);
-    });
+    document.getElementById('downloadProgressSampleBtn')?.addEventListener('click', () => this.downloadSample());
 
     // 匯入進度與作業 Excel
     document.getElementById('progressExcelInput')?.addEventListener('change', async (e) => {

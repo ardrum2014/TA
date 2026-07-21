@@ -37,39 +37,24 @@ const TimetableModule = {
     this.updateSidebarWidget();
   },
 
+  toggleEdit() {
+    this.isEditing = !this.isEditing;
+    const btn = document.getElementById('toggleTimetableEditBtn');
+    if (btn) {
+      btn.innerHTML = this.isEditing ? 
+        '<i class="fa-solid fa-check"></i> 💾 完成編輯' : 
+        '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯課表';
+      btn.className = this.isEditing ? 'btn btn-success' : 'btn btn-primary';
+    }
+    this.renderGrid();
+  },
+
   bindEvents() {
-    // 編輯/儲存課表按鈕
-    document.getElementById('toggleTimetableEditBtn')?.addEventListener('click', () => {
-      this.isEditing = !this.isEditing;
-      const btn = document.getElementById('toggleTimetableEditBtn');
-      if (btn) {
-        btn.innerHTML = this.isEditing ? 
-          '<i class="fa-solid fa-check"></i> 💾 完成編輯' : 
-          '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯課表';
-        btn.className = this.isEditing ? 'btn btn-success' : 'btn btn-primary';
-      }
-      this.renderGrid();
-    });
-
-    // 節次時間設定按鈕
-    document.getElementById('setupPeriodTimesBtn')?.addEventListener('click', () => {
-      this.openPeriodTimesModal();
-    });
-
-    // 匯出至 Google 日曆 (.ics)
-    document.getElementById('exportGoogleCalendarBtn')?.addEventListener('click', () => {
-      this.exportToICS();
-    });
-
-    // 📥 讀取與訂閱線上 Google 日曆網址 (iCal/ICS 反向同步)
-    document.getElementById('importGoogleCalendarBtn')?.addEventListener('click', () => {
-      this.openGoogleImportModal();
-    });
-
-    // 列印課表
-    document.getElementById('printTimetableBtn')?.addEventListener('click', () => {
-      window.print();
-    });
+    document.getElementById('toggleTimetableEditBtn')?.addEventListener('click', () => this.toggleEdit());
+    document.getElementById('setupPeriodTimesBtn')?.addEventListener('click', () => this.openPeriodTimesModal());
+    document.getElementById('exportGoogleCalendarBtn')?.addEventListener('click', () => this.exportToICS());
+    document.getElementById('importGoogleCalendarBtn')?.addEventListener('click', () => this.openGoogleImportModal());
+    document.getElementById('printTimetableBtn')?.addEventListener('click', () => window.print());
   },
 
   // 開啟 📥 讀取/訂閱 Google 日曆網址彈窗
