@@ -1,0 +1,83 @@
+/* 倒數計時器樣式 */
+.timer-mode-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.timer-main-card {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.timer-giant-display {
+  font-size: 8.5rem;
+  font-weight: 700;
+  font-family: var(--font-family-base);
+  color: var(--color-amber);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 32px;
+  text-shadow: 0 4px 20px rgba(217, 155, 104, 0.2);
+}
+
+.timer-presets {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.btn-preset {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 1.05rem;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-preset:hover {
+  background-color: var(--color-matcha);
+  color: #FFF;
+}
+
+.custom-timer-input {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.timer-control-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.timer-main-card:fullscreen,
+.timer-main-card.is-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 40px !important;
+  background: linear-gradient(135deg, #FAF6F0 0%, #EFE6DB 100%) !important;
+  z-index: 99999 !important;
+}
+
+body.theme-cozy-dark .timer-main-card:fullscreen,
+body.theme-cozy-dark .timer-main-card.is-fullscreen {
+  background: linear-gradient(135deg, #26201F 0%, #38302F 100%) !important;
+}
+
+.timer-main-card:fullscreen .timer-giant-display,
+.timer-main-card.is-fullscreen .timer-giant-display {
+  font-size: 18vw;
+}
+

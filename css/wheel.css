@@ -1,0 +1,178 @@
+/* 輪盤抽籤樣式 */
+.wheel-mode-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.wheel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .wheel-grid { grid-template-columns: 1fr; }
+}
+
+.wheel-canvas-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+
+.wheel-container {
+  position: relative;
+  width: 450px;
+  height: 450px;
+  max-width: 100%;
+}
+
+.wheel-container canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.wheel-container canvas:hover {
+  transform: scale(1.01);
+}
+
+/* 抽中客製化畫面中彈窗 */
+.winner-modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(42, 36, 35, 0.85);
+  backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.winner-content {
+  text-align: center;
+  color: #FFF;
+  padding: 24px;
+}
+
+.winner-icon {
+  font-size: 3.5rem;
+  margin-bottom: 4px;
+}
+
+.winner-sub {
+  font-size: 1.1rem;
+  letter-spacing: 0.25em;
+  color: var(--color-amber);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.winner-name {
+  font-size: 2.8rem;
+  font-weight: 700;
+  font-family: var(--font-family-title);
+  color: #FFF;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  margin-bottom: 12px;
+}
+
+.winner-hint {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2.4rem;
+  color: var(--color-rose);
+  z-index: 10;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+}
+
+.wheel-actions {
+  margin-top: 24px;
+}
+
+.winner-list {
+  counter-reset: winner-counter;
+  list-style: none;
+  padding: 0;
+  margin-top: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.winner-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  font-size: 1.05rem;
+  color: var(--color-espresso);
+  font-weight: 600;
+}
+
+.winner-list li::before {
+  content: counter(winner-counter);
+  counter-increment: winner-counter;
+  background-color: var(--color-amber);
+  color: #FFF;
+  font-size: 0.85rem;
+  font-weight: bold;
+  min-width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wheel-canvas-card:fullscreen,
+.wheel-canvas-card.is-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 40px !important;
+  background: linear-gradient(135deg, #FAF6F0 0%, #EFE6DB 100%) !important;
+  z-index: 99999 !important;
+}
+
+body.theme-cozy-dark .wheel-canvas-card:fullscreen,
+body.theme-cozy-dark .wheel-canvas-card.is-fullscreen {
+  background: linear-gradient(135deg, #26201F 0%, #38302F 100%) !important;
+}
+
+.wheel-canvas-card:fullscreen .wheel-container,
+.wheel-canvas-card.is-fullscreen .wheel-container {
+  width: 70vh;
+  height: 70vh;
+}
+

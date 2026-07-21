@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>☕️ 南寧咖啡館 - 教師智慧小手帳</title>
+  <meta name="description" content="南寧咖啡館 - 教師智慧小手帳 & 課堂助手網站">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Iansui&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome 圖示套件 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 樣式檔案 -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/roster.css">
+  <link rel="stylesheet" href="css/schedule.css">
+  <link rel="stylesheet" href="css/wheel.css">
+  <link rel="stylesheet" href="css/timer.css">
+  <link rel="stylesheet" href="css/seating.css">
+  <link rel="stylesheet" href="css/groups.css">
+  <link rel="stylesheet" href="css/points.css">
+  <link rel="stylesheet" href="css/homework.css">
+  <link rel="stylesheet" href="css/progress.css">
+  <link rel="stylesheet" href="css/guide.css">
+
+  <!-- 本地端與第三方 JavaScript 庫 -->
+  <script src="js/xlsx.full.min.js"></script>
+  <script src="js/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body class="theme-cozy-light">
+
+  <div class="app-layout">
+    <!-- 側邊導覽列 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <h2><i class="fa-solid fa-mug-hot"></i> 南寧咖啡館</h2>
+        <p class="logo-sub">智慧教師手帳 & 課堂助手</p>
+      </div>
+
+      <!-- 班級快速選擇區 -->
+      <div class="active-class-selector">
+        <label for="globalClassSelect"><i class="fa-solid fa-graduation-cap"></i> 當前班級：</label>
+        <select id="globalClassSelect" class="form-select">
+          <option value="">選擇班級...</option>
+        </select>
+      </div>
+
+      <!-- 導覽選單 -->
+      <nav class="nav-menu" id="navMenu">
+        <button class="nav-item active" data-tab="schedule">
+          <i class="fa-solid fa-clock"></i> <span>課堂提醒與計時</span>
+        </button>
+        <button class="nav-item" data-tab="wheel">
+          <i class="fa-solid fa-dharmachakra"></i> <span>幸運輪盤抽籤</span>
+        </button>
+        <button class="nav-item" data-tab="seating">
+          <i class="fa-solid fa-border-all"></i> <span>座位表編輯</span>
+        </button>
+        <button class="nav-item" data-tab="groups">
+          <i class="fa-solid fa-people-group"></i> <span>分組工具</span>
+        </button>
+        <button class="nav-item" data-tab="points">
+          <i class="fa-solid fa-star"></i> <span>加分與小組競賽</span>
+        </button>
+        <button class="nav-item" data-tab="progress">
+          <i class="fa-solid fa-book-bookmark"></i> <span>課程進度與作業</span>
+        </button>
+        <button class="nav-item" data-tab="timetable">
+          <i class="fa-solid fa-calendar-days"></i> <span>個人課表</span>
+        </button>
+        <button class="nav-item" data-tab="roster">
+          <i class="fa-solid fa-address-book"></i> <span>班級管理</span>
+        </button>
+        <button class="nav-item" data-tab="guide">
+          <i class="fa-solid fa-book-open"></i> <span>網站說明</span>
+        </button>
+      </nav>
+
+      <!-- 側邊欄底部工具與時間 -->
+      <div class="sidebar-footer">
+        <div class="sidebar-cloud-btn-group">
+          <button id="cloudBackupAllBtn" class="btn btn-secondary btn-sm flex-1" title="匯出全站備份檔並開啟 Google 雲端硬碟">
+            <i class="fa-solid fa-cloud-arrow-up"></i> <span>備份全站</span>
+          </button>
+          <label for="cloudRestoreInput" class="btn btn-outline btn-sm flex-1" title="匯入已備份的全站 JSON 檔案">
+            <i class="fa-solid fa-cloud-arrow-down"></i> <span>匯入還原</span>
+          </label>
+          <input type="file" id="cloudRestoreInput" accept=".json" hidden>
+        </div>
+        <button id="themeToggleBtn" class="btn btn-outline btn-block margin-top-xs">
+          <i class="fa-solid fa-moon"></i> <span>暖暗模式</span>
+        </button>
+        <div class="current-time-widget">
+          <div id="sidebarDate">2026/07/21</div>
+          <div id="sidebarClock" class="clock-display">08:30:00</div>
+          <!-- 📢 下一節課即時提醒小卡片 (點擊可切換至個人課表) -->
+          <div id="nextClassWidget" class="next-class-widget" title="點擊檢視與編輯教師個人週課表" onclick="App.switchTab('timetable')">
+            <div class="next-class-header"><i class="fa-solid fa-bell"></i> 課表動態提醒</div>
+            <div id="nextClassText" class="next-class-text">載入中...</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主要內容區域 -->
+    <main class="main-content">
+      <!-- 頂部高亮提示條 (頂部時間與倒數概覽) -->
+      <header class="top-bar">
+        <button id="sidebarToggle" class="mobile-toggle"><i class="fa-solid fa-bars"></i></button>
+        <div class="header-status" id="headerStatusWidget">
+          <div class="status-badge"><i class="fa-solid fa-bullhorn"></i> <span id="topActivityTitle">課堂準備中</span></div>
+          <div class="status-countdown" id="topCountdownDisplay">00:00</div>
+        </div>
+        <div class="top-actions">
+          <button id="quickSoundBtn" class="icon-btn" title="音效切換"><i class="fa-solid fa-volume-high"></i></button>
+        </div>
+      </header>
+
+      <!-- 頁籤面板區域 -->
+      <div class="content-container">
+
+        <!-- 1. 課堂活動提醒與計時器整合面版 -->
+        <section id="schedule" class="tab-panel active">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-chalkboard-user"></i> 課堂活動提醒與計時器</h2>
+            <div class="panel-actions">
+              <button id="downloadScheduleSampleBtn" class="btn btn-secondary"><i class="fa-solid fa-file-excel"></i> 下載活動範例檔</button>
+              <label for="scheduleExcelInput" class="btn btn-primary"><i class="fa-solid fa-file-import"></i> 匯入活動 Excel/CSV</label>
+              <input type="file" id="scheduleExcelInput" accept=".xlsx, .xls, .csv" hidden>
+            </div>
+          </div>
+
+          <div class="schedule-grid">
+            <!-- 當前活動與大字體計時卡片 -->
+            <div class="card current-activity-card" id="currentActivityCard">
+              <div class="card-tag" id="activityCardTag">目前進行中</div>
+              <div class="live-clock-box">
+                <button id="activityFullscreenBtn" class="icon-btn btn-sm" title="全螢幕投影模式 (按下 ESC 退出)"><i class="fa-solid fa-expand"></i></button>
+                <span class="live-clock-label">現在時間</span>
+                <span id="scheduleCurrentTime" class="live-clock">08:30:00</span>
+              </div>
+
+              <!-- 模式選擇切換鈕 -->
+              <div class="timer-mode-pills">
+                <button type="button" class="btn btn-chip active" id="modeFlowBtn"><i class="fa-solid fa-list-check"></i> 課堂流程模式</button>
+                <button type="button" class="btn btn-chip" id="modeFreeCountdownBtn"><i class="fa-solid fa-hourglass-half"></i> 自由倒數</button>
+                <button type="button" class="btn btn-chip" id="modeStopwatchBtn"><i class="fa-solid fa-stopwatch"></i> 正計時碼錶</button>
+                <button type="button" class="btn btn-chip" id="modeClockBtn"><i class="fa-solid fa-clock"></i> 現在時間</button>
+              </div>
+
+              <div class="activity-hero">
+                <h3 id="currentScheduleTopic">尚未啟動活動</h3>
+                <p id="currentScheduleTask" class="task-description">請點擊即刻啟動，或匯入活動流程 Excel 開始！</p>
+                
+                <!-- 快捷分鐘數按鈕 (1分, 3分, 5分, 10分, 15分) -->
+                <div class="timer-presets margin-top-sm" id="integratedPresets">
+                  <button type="button" class="btn btn-preset-sm" data-sec="60">1 分鐘</button>
+                  <button type="button" class="btn btn-preset-sm" data-sec="180">3 分鐘</button>
+                  <button type="button" class="btn btn-preset-sm" data-sec="300">5 分鐘</button>
+                  <button type="button" class="btn btn-preset-sm" data-sec="600">10 分鐘</button>
+                  <button type="button" class="btn btn-preset-sm" data-sec="900">15 分鐘</button>
+                </div>
+
+                <div class="timer-big-display" id="scheduleTimerDisplay">00:00</div>
+
+                <div class="timer-controls">
+                  <button id="scheduleStartPauseBtn" class="btn btn-accent btn-lg"><i class="fa-solid fa-play"></i> 開始/暫停</button>
+                  <button id="scheduleNextBtn" class="btn btn-secondary btn-lg"><i class="fa-solid fa-forward-step"></i> 切換下一項</button>
+                  <button id="scheduleResetBtn" class="btn btn-outline"><i class="fa-solid fa-rotate-left"></i> 重置</button>
+                </div>
+              </div>
+              <div class="fullscreen-esc-tip">提示：按下 <kbd>ESC</kbd> 可隨時退出全螢幕</div>
+            </div>
+
+            <!-- 即時輸入倒數設定卡 -->
+            <div class="card quick-input-card">
+              <h3><i class="fa-solid fa-bolt"></i> 即時輸入與即刻倒數</h3>
+              <form id="quickScheduleForm">
+                <div class="form-group">
+                  <label for="quickTopic">活動主題：</label>
+                  <input type="text" id="quickTopic" class="form-control" placeholder="例：分組討論 / 小測驗" required>
+                </div>
+                <div class="form-group">
+                  <label for="quickTask">任務內容：</label>
+                  <textarea id="quickTask" class="form-control" rows="2" placeholder="例：請完成課本第 25 頁第二題..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="quickMinutes">設定分鐘數：</label>
+                  <div class="input-with-buttons">
+                    <input type="number" id="quickMinutes" class="form-control" min="1" max="180" value="10" required>
+                    <div class="quick-min-preset">
+                      <button type="button" class="btn-chip" data-min="3">+3分</button>
+                      <button type="button" class="btn-chip" data-min="5">+5分</button>
+                      <button type="button" class="btn-chip" data-min="15">+15分</button>
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-rocket"></i> 即刻開始倒數</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- 匯入的活動流程列表 -->
+          <div class="card schedule-list-card margin-top">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-list-check"></i> 本節課流程清單</h3>
+              <button id="clearScheduleBtn" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i> 清空流程</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table" id="scheduleTable">
+                <thead>
+                  <tr>
+                    <th>序號</th>
+                    <th>預計時間</th>
+                    <th>時長</th>
+                    <th>主題</th>
+                    <th>任務內容</th>
+                    <th>狀態</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="scheduleTableBody">
+                  <tr><td colspan="7" class="text-center text-muted">尚未匯入活動流程，請下載範例檔填寫後匯入。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. 抹茶幸運輪盤抽籤 -->
+        <section id="wheel" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-dharmachakra"></i> 抹茶幸運輪盤抽籤</h2>
+            <div class="wheel-mode-pills">
+              <button type="button" class="btn btn-chip active" id="wheelModeStudentBtn"><i class="fa-solid fa-user"></i> 抽學生</button>
+              <button type="button" class="btn btn-chip" id="wheelModeGroupBtn"><i class="fa-solid fa-people-group"></i> 抽分組</button>
+            </div>
+            <div class="panel-actions">
+              <button id="wheelFullscreenBtn" class="btn btn-secondary"><i class="fa-solid fa-expand"></i> 全螢幕投影</button>
+              <button id="wheelImportRosterBtn" class="btn btn-primary"><i class="fa-solid fa-users"></i> 帶入班級名冊</button>
+            </div>
+          </div>
+
+          <div class="wheel-grid">
+            <!-- 輪盤 Canvas 區域 -->
+            <div class="card wheel-canvas-card">
+              <div class="wheel-container">
+                <div class="wheel-pointer"><i class="fa-solid fa-location-pin"></i></div>
+                <canvas id="wheelCanvas" width="450" height="450" title="點擊輪盤即可開始抽籤"></canvas>
+                
+                <!-- 中獎客製化彈窗 (點擊任意處關閉) -->
+                <div class="winner-modal-overlay hidden" id="winnerOverlay">
+                  <div class="winner-content">
+                    <div class="winner-icon">🏆</div>
+                    <div class="winner-sub" id="winnerOverlaySub">恭 喜 抽 中</div>
+                    <div class="winner-name" id="winnerOverlayName">學生姓名</div>
+                    <div class="winner-details hidden" id="winnerOverlayDetails" style="font-size: 1.1rem; color: #4A3E3D; margin-top: 8px;"></div>
+                    <div class="winner-hint"><i class="fa-solid fa-hand-pointer"></i> 點擊任意處關閉</div>
+                  </div>
+                </div>
+              </div>
+              <div class="wheel-actions">
+                <button id="spinBtn" class="btn btn-accent btn-xl"><i class="fa-solid fa-compass"></i> 開始旋轉抽籤！</button>
+              </div>
+            </div>
+
+            <!-- 名單輸入與設定 -->
+            <div class="card wheel-settings-card">
+              <h3><i class="fa-solid fa-sliders"></i> 抽籤名單與設定</h3>
+              <div class="form-group">
+                <label for="wheelCandidatesText">抽籤名單 (一列一人)：</label>
+                <textarea id="wheelCandidatesText" class="form-control" rows="8" placeholder="輸入姓名或從名冊帶入...&#10;張小明&#10;李小華&#10;王大同"></textarea>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" id="removeAfterWinCheck" class="form-check-input" checked>
+                <label for="removeAfterWinCheck" class="form-check-label">抽中後自動從輪盤移除該人員</label>
+              </div>
+              <div class="wheel-history margin-top">
+                <h4><i class="fa-solid fa-trophy"></i> 抽中紀錄</h4>
+                <ol id="wheelWinnerHistory" class="winner-list"></ol>
+                <button id="resetWheelHistoryBtn" class="btn btn-sm btn-outline"><i class="fa-solid fa-arrow-rotate-left"></i> 重置歷史</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. 智慧座位表 -->
+        <section id="seating" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-border-all"></i> 智慧座位表</h2>
+            <div class="panel-actions">
+              <button id="toggleSeatEditBtn" class="btn btn-accent"><i class="fa-solid fa-pen"></i> ✏️ 編輯模式</button>
+              <button id="saveSeatEditBtn" class="btn btn-primary hidden"><i class="fa-solid fa-floppy-disk"></i> 💾 儲存座位表</button>
+              <button id="seatingImportClassBtn" class="btn btn-secondary"><i class="fa-solid fa-users"></i> 帶入當前班級</button>
+              <button id="randomizeSeatingBtn" class="btn btn-outline"><i class="fa-solid fa-shuffle"></i> 隨機編排座位</button>
+              <button id="printSeatingBtn" class="btn btn-outline" title="僅列印/轉存PDF中間座位表"><i class="fa-solid fa-print"></i> 列印/轉PDF</button>
+              <button id="exportSeatingPngBtn" class="btn btn-primary" title="匯出座位表為 PNG 圖片"><i class="fa-solid fa-file-image"></i> 下載圖片 PNG</button>
+            </div>
+          </div>
+
+          <div id="seatModeBanner" class="alert-banner locked-banner margin-bottom" style="padding: 10px 16px; border-radius: 8px; font-weight: bold; display: flex; align-items: center; justify-content: space-between; background-color: var(--color-latte); border: 2px solid var(--color-amber); font-size: 0.95rem;">
+            <span><i class="fa-solid fa-lock" id="seatModeIcon"></i> <span id="seatModeText">目前為「🔒 唯讀預覽模式」（防止誤觸對換名牌，點擊右上角「✏️ 編輯模式」開始修改）</span></span>
+          </div>
+
+          <div class="card seating-control-card">
+            <div class="form-inline">
+              <label>網格大小：</label>
+              <input type="number" id="seatRows" class="form-control inline-input" min="2" max="10" value="5"> 行 ×
+              <input type="number" id="seatCols" class="form-control inline-input" min="2" max="10" value="6"> 列
+              <button id="applySeatGridBtn" class="btn btn-sm btn-primary">更新網格</button>
+            </div>
+            <div class="form-inline">
+              <label>講台位置：</label>
+              <select id="podiumPosition" class="form-select inline-select">
+                <option value="top">上方 (前方)</option>
+                <option value="bottom">下方 (後方)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card seating-board-card" id="seatingBoardCard">
+            <!-- 僅在列印與匯出時顯示之標頭 -->
+            <div class="seating-print-header" id="seatingPrintHeader" style="display: none; width: 100%; text-align: center; margin-bottom: 15px;">
+              <h2 style="font-family: var(--font-family-title); font-size: 1.8rem; color: #000; margin-bottom: 4px;" id="seatingPrintTitle">班級座位表</h2>
+              <div style="font-size: 0.9rem; color: #555;" id="seatingPrintDate"></div>
+            </div>
+            <div class="podium-banner" id="podiumBannerTop"><i class="fa-solid fa-chalkboard"></i> 講 台 (Podium)</div>
+            <div class="seating-grid" id="seatingGrid"></div>
+            <div class="podium-banner hidden" id="podiumBannerBottom"><i class="fa-solid fa-chalkboard"></i> 講 台 (Podium)</div>
+          </div>
+        </section>
+
+        <!-- 5. 分組工具 -->
+        <section id="groups" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-people-group"></i> 分組工具</h2>
+            <div class="panel-actions">
+              <button id="toggleGroupEditBtn" class="btn btn-accent"><i class="fa-solid fa-pen"></i> ✏️ 編輯模式</button>
+              <button id="saveGroupEditBtn" class="btn btn-primary hidden"><i class="fa-solid fa-floppy-disk"></i> 💾 儲存分組設定</button>
+              <button id="resetLeadersBtn" class="btn btn-outline" title="將各組排第一位的學生設定為組長"><i class="fa-solid fa-crown"></i> 👑 確認第一位為組長</button>
+              <button id="exportGroupsExcelBtn" class="btn btn-secondary" title="匯出學生名條與分組資訊為 Excel 評分表"><i class="fa-solid fa-file-excel"></i> 匯出分組 Excel</button>
+              <button id="addGroupManualBtn" class="btn btn-outline"><i class="fa-solid fa-folder-plus"></i> 手動新增小組</button>
+              <button id="groupsSyncToPointsBtn" class="btn btn-accent"><i class="fa-solid fa-share-nodes"></i> 同步至分組加分榜</button>
+            </div>
+          </div>
+
+          <div class="card groups-config-card">
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>分組模式：</label>
+                <select id="groupModeSelect" class="form-select">
+                  <option value="numGroups">依「總組數」分組</option>
+                  <option value="perGroup">依「每組人數」分組</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label id="groupCountLabel">目標總組數：</label>
+                <input type="number" id="groupTargetNum" class="form-control" min="2" max="20" value="6">
+              </div>
+              <div class="form-group align-self-end">
+                <button id="generateGroupsBtn" class="btn btn-primary btn-block"><i class="fa-solid fa-wand-magic-sparkles"></i> 開始自動分組</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="groups-container" id="groupsDisplayArea">
+            <div class="text-center text-muted padding-20">請先點擊「開始自動分組」來為學生進行排組。</div>
+          </div>
+        </section>
+
+        <!-- 6. 加分競賽 -->
+        <section id="points" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-star"></i> 課堂加分與小組競賽榜</h2>
+            <div class="points-mode-switch">
+              <button class="btn btn-chip active" id="viewIndividualPointsBtn">個人加分榜</button>
+              <button class="btn btn-chip" id="viewTeamPointsBtn">分組競賽榜</button>
+            </div>
+            <div class="panel-actions">
+              <button id="exportPointsExcelBtn" class="btn btn-secondary"><i class="fa-solid fa-file-excel"></i> 匯出加分 Excel</button>
+              <button id="saveToCloudBtn" class="btn btn-accent"><i class="fa-solid fa-cloud-arrow-up"></i> ☁️ 傳送至 Google 雲端</button>
+              <button id="copyPointsTextBtn" class="btn btn-primary"><i class="fa-solid fa-copy"></i> 複製排行榜文字</button>
+              <button id="resetPointsBtn" class="btn btn-outline-danger"><i class="fa-solid fa-arrow-rotate-left"></i> 點數歸零</button>
+            </div>
+          </div>
+
+          <!-- 個人加分視圖 -->
+          <div id="individualPointsPanel" class="points-panel">
+            <div class="points-student-grid" id="studentPointsGrid">
+              <div class="text-center text-muted">請先在名條管理中建立學生名冊。</div>
+            </div>
+          </div>
+
+          <!-- 分組競賽視圖 -->
+          <div id="teamPointsPanel" class="points-panel hidden">
+            <div class="team-leaderboard-grid" id="teamPointsGrid">
+              <div class="text-center text-muted">尚未建立分組，請至「隨機分組」點擊「同步至分組加分榜」。</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. 作業追蹤 -->
+        <section id="homework" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-book-bookmark"></i> 作業與習作繳交追蹤</h2>
+            <div class="panel-actions">
+              <button id="addHomeworkBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> 新增作業項目</button>
+              <button id="exportHomeworkExcelBtn" class="btn btn-secondary" title="匯出當前作業繳交狀態 Excel 表單"><i class="fa-solid fa-file-excel"></i> 匯出作業 Excel</button>
+              <button id="exportMissingHwBtn" class="btn btn-accent"><i class="fa-solid fa-copy"></i> 複製未繳學生名單</button>
+            </div>
+          </div>
+
+          <div class="card homework-select-card">
+            <div class="form-inline">
+              <label for="activeHomeworkSelect">目前選擇的作業：</label>
+              <select id="activeHomeworkSelect" class="form-select flex-1">
+                <option value="">(請選擇或建立作業)</option>
+              </select>
+              <button id="deleteHomeworkBtn" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash"></i> 刪除作業</button>
+            </div>
+          </div>
+
+          <div class="card homework-matrix-card margin-top">
+            <div class="table-responsive">
+              <table class="table table-hover" id="homeworkTable">
+                <thead>
+                  <tr>
+                    <th>座號</th>
+                    <th>姓名</th>
+                    <th>繳交狀態 (點擊切換)</th>
+                    <th>備註與說明</th>
+                  </tr>
+                </thead>
+                <tbody id="homeworkTableBody">
+                  <tr><td colspan="4" class="text-center text-muted">請先選擇或建立作業項目。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. 課程與作業追蹤整合頁面 -->
+        <section id="progress" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-book-bookmark"></i> 課程與作業追蹤 (進度、作業與指派多班級)</h2>
+            <div class="panel-actions">
+              <button id="addProgressSubjectBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> 新增科目/單元</button>
+              <button id="downloadProgressSampleBtn" class="btn btn-outline" title="下載進度與作業匯入 Excel 範例檔"><i class="fa-solid fa-download"></i> 下載匯入範例</button>
+              <label for="progressExcelInput" class="btn btn-secondary" style="margin: 0; cursor: pointer;" title="批次匯入科目、章節與作業"><i class="fa-solid fa-file-import"></i> 📥 匯入進度與作業 Excel</label>
+              <input type="file" id="progressExcelInput" accept=".xlsx, .xls, .csv" hidden>
+            </div>
+          </div>
+
+          <div class="progress-grid" id="progressGridArea">
+            <!-- 動態生成科目、章節、作業與學生繳交矩陣 -->
+          </div>
+        </section>
+
+        <!-- 8. 教師個人週課表頁面 -->
+        <section id="timetable" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-calendar-days"></i> 教師個人週課表 (5天8節、代課註記與即時提醒)</h2>
+            <div class="panel-actions">
+              <button id="toggleTimetableEditBtn" class="btn btn-primary"><i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯課表</button>
+              <button id="importGoogleCalendarBtn" class="btn btn-secondary" title="貼入 Google 日曆 iCal 網址完成反向自動讀取與訂閱"><i class="fa-solid fa-cloud-arrow-down"></i> 📥 訂閱線上 Google 日曆</button>
+              <button id="exportGoogleCalendarBtn" class="btn btn-accent" title="一鍵匯出全週課表至 Google 日曆"><i class="fa-solid fa-calendar-plus"></i> 📤 匯出至 Google 日曆</button>
+              <button id="setupPeriodTimesBtn" class="btn btn-secondary"><i class="fa-solid fa-clock"></i> ⚙️ 設定節次時間</button>
+              <button id="printTimetableBtn" class="btn btn-outline"><i class="fa-solid fa-print"></i> 列印課表</button>
+            </div>
+          </div>
+
+          <div id="timetableGridContainer" class="card margin-top" style="background: var(--bg-card); padding: 18px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+            <!-- 動態生成課表表格 -->
+          </div>
+        </section>
+
+        <!-- 9. 班級管理 (整合學生名條與南寧高中雲端資料庫) -->
+        <section id="roster" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-address-book"></i> 班級管理與學生名條 (本機離線自動存檔)</h2>
+            <div class="panel-actions">
+              <a href="https://drive.google.com/drive/folders/1ccBmvWKUXzxWu4cxIqy8X1RsS2TPQeyi" target="_blank" rel="noopener noreferrer" class="btn btn-chip" style="background-color: var(--color-amber); color: #FFF; font-weight: bold;"><i class="fa-solid fa-school"></i> 🏫 開啟南寧高中名冊雲端</a>
+              <button id="downloadMultiRosterSampleBtn" class="btn btn-secondary" title="支援公假系統欄位與多班級同時匯入"><i class="fa-solid fa-file-excel"></i> 下載多班級/公假系統 Excel 範例</button>
+              <button id="downloadRosterSampleBtn" class="btn btn-outline" title="單一班級名條範例"><i class="fa-solid fa-file-excel"></i> 單班範例</button>
+              <label for="rosterExcelInput" class="btn btn-primary"><i class="fa-solid fa-file-import"></i> 匯入名條 Excel/CSV</label>
+              <input type="file" id="rosterExcelInput" accept=".xlsx, .xls, .csv" hidden>
+            </div>
+          </div>
+
+          <!-- 南寧高中專區雲端卡片 -->
+          <div class="card margin-bottom nanning-banner-card" style="background: linear-gradient(135deg, #FFF9F2 0%, #F5E8D8 100%); border: 2px solid var(--color-amber); padding: 20px 24px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 280px;">
+                <div style="font-size: 2.5rem; color: var(--color-amber);"><i class="fa-solid fa-graduation-cap"></i></div>
+                <div>
+                  <h3 style="font-size: 1.25rem; color: var(--color-espresso); margin-bottom: 4px;">🏫 南寧高中全校學生名冊雲端資料庫</h3>
+                  <p style="font-size: 0.95rem; color: var(--text-main); margin: 0; line-height: 1.5;">登入南寧高中學校官方 Google 帳號，即可存取全校各班級最新 Excel/CSV 名冊檔。下載後點擊「匯入名條 Excel/CSV」即可自動建立班級名條！</p>
+                </div>
+              </div>
+              <a href="https://drive.google.com/drive/folders/1ccBmvWKUXzxWu4cxIqy8X1RsS2TPQeyi" target="_blank" rel="noopener noreferrer" class="btn btn-accent" style="white-space: nowrap; font-weight: bold; border-radius: 20px; padding: 10px 20px;">
+                <i class="fa-solid fa-folder-open"></i> 開啟雲端資料夾 (需登入學校帳號)
+              </a>
+            </div>
+          </div>
+
+          <div class="card roster-class-manager">
+            <div class="form-inline" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <label for="rosterClassSelect"><strong><i class="fa-solid fa-list-check"></i> 選擇目前管理班級：</strong></label>
+              <select id="rosterClassSelect" class="form-control inline-select" style="min-width: 150px; font-weight: bold; color: var(--color-espresso); border: 2px solid var(--color-amber);"></select>
+
+              <span style="color: var(--border-color); margin: 0 4px;">|</span>
+
+              <label for="rosterClassNameInput">新增班級：</label>
+              <input type="text" id="rosterClassNameInput" class="form-control inline-input" placeholder="例如：402班" style="width: 140px;">
+              <button id="createNewClassBtn" class="btn btn-secondary"><i class="fa-solid fa-plus"></i> 新增</button>
+              <button id="deleteCurrentClassBtn" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash"></i> 刪除當前班級</button>
+            </div>
+          </div>
+
+          <div class="card roster-table-card margin-top">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-users-line"></i> 學生名單列表</h3>
+              <button id="addStudentManualBtn" class="btn btn-sm btn-primary"><i class="fa-solid fa-user-plus"></i> 手動新增學生</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table" id="rosterTable">
+                <thead>
+                  <tr>
+                    <th>座號</th>
+                    <th>姓名</th>
+                    <th>性別 / 備註</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="rosterTableBody">
+                  <tr><td colspan="4" class="text-center text-muted">尚未建立學生名單，請點擊匯入或手動新增。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 11. 網站說明與全站導覽 -->
+        <section id="guide" class="tab-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-book-open"></i> 網站導覽與全功能操作指引</h2>
+          </div>
+
+          <div class="guide-welcome-card card margin-bottom">
+            <div class="guide-welcome-content">
+              <h3>☕️ 歡迎使用「南寧咖啡館」智慧教師小手帳</h3>
+              <p>本系統專為教師課堂管理與互動教學設計。全站採用溫暖手寫質感的<b>芫荽字體 (Iansui)</b>與<b>咖啡廳舒壓配色</b>，支援完全離線使用、本機永久資料儲存與全站雲端備份還原！</p>
+            </div>
+          </div>
+
+          <div class="guide-grid">
+            <!-- 1. 課堂提醒與計時器 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-clock"></i></div>
+              <h4>1. 課堂提醒與計時器</h4>
+              <ul>
+                <li><b>四大切換模式</b>：課堂流程模式、自由倒數、正計時碼錶、實時大時鐘。</li>
+                <li><b>快捷時間點擊</b>：提供 1分、3分、5分、10分、15分一鍵啟動。</li>
+                <li><b>全螢幕投影模式</b>：點擊放大按鈕 <i class="fa-solid fa-expand"></i> 填滿全螢幕，隨時按下 <kbd>ESC</kbd> 即可退出。</li>
+                <li><b>Excel 流程匯入</b>：支援解析 `預計時間`、`時長`、`主題`、`任務內容` 表單。</li>
+              </ul>
+            </div>
+
+            <!-- 2. 抹茶幸運輪盤抽籤 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-dharmachakra"></i></div>
+              <h4>2. 抹茶幸運輪盤抽籤</h4>
+              <ul>
+                <li><b>點擊輪盤抽籤</b>：滑鼠直接點擊輪盤任意處或中央「抽籤」鈕即可旋轉。</li>
+                <li><b>畫面中質感彈窗</b>：抽中時於畫面中央高亮彈窗，<b>點擊任意處即可隨手關閉</b>。</li>
+                <li><b>一鍵帶入班級名冊</b>：連動名條管理，並自動記錄抽中歷史與剔除機制。</li>
+              </ul>
+            </div>
+
+            <!-- 3. 智慧座位表編輯器 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-border-all"></i></div>
+              <h4>3. 智慧座位表編輯器</h4>
+              <ul>
+                <li><b>滑鼠拖放名牌對換</b>：直接拖曳學生名牌至目標位置，<b>自動對換兩位學生座位</b>！</li>
+                <li><b>點擊對換與網格調整</b>：支援觸控點擊對換、自訂 5x6 網格與講台前後切換。</li>
+                <li><b>友善列印</b>：提供一鍵列印視圖。</li>
+              </ul>
+            </div>
+
+            <!-- 4. 隨機與彈性分組工具 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-people-group"></i></div>
+              <h4>4. 隨機與彈性分組工具</h4>
+              <ul>
+                <li><b>自動分組與跨組拖放</b>：可按組數/人數隨機分組，支援滑鼠拖放或點擊跨組移動學生。</li>
+                <li><b>客製化組別管理</b>：支援「手動新增小組」、點擊修改組名（如蘋果隊）、指定/切換組長 👑。</li>
+                <li><b>同步至加分榜</b>：一鍵連動至分組加分競賽。</li>
+              </ul>
+            </div>
+
+            <!-- 5. 課堂加分與競賽榜 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-star"></i></div>
+              <h4>5. 課堂加分與小組競賽榜</h4>
+              <ul>
+                <li><b>個人與分組加分</b>：卡片式加扣分，伴隨音效與獎勵動畫。</li>
+                <li><b>一鍵匯出 Excel (雙 Sheet)</b>：產出包含個人與分組榜的 `.xlsx` 試算表。</li>
+                <li><b>複製排行榜文字 & 雲端傳送</b>：一鍵複製格式文字或開啟 Google 雲端硬碟拖放備份。</li>
+              </ul>
+            </div>
+
+            <!-- 6. 作業與習作追蹤 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+              <h4>6. 作業與習作追蹤</h4>
+              <ul>
+                <li><b>四態標籤切換</b>：未繳 ❌ ➔ 已繳 🟢 ➔ 待訂正 🟡 ➔ 補繳 🔵。</li>
+                <li><b>一鍵複製未繳名單</b>：產出整理好的未繳學生名冊，方便貼至聯絡簿或班級群組。</li>
+              </ul>
+            </div>
+
+            <!-- 7. 課程與單元進度管理 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-bars-staggered"></i></div>
+              <h4>7. 課程與單元進度管理</h4>
+              <ul>
+                <li><b>單元清單與完成率</b>：勾選已完成章節，自動計算視覺化進度百分比條。</li>
+              </ul>
+            </div>
+
+            <!-- 8. 名條管理與全站備份 -->
+            <div class="card guide-card">
+              <div class="guide-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <h4>8. 名條管理與全站雲端備份/還原</h4>
+              <ul>
+                <li><b>Excel 名條匯入/下載範本</b>：離線本機永久存檔，資料關閉瀏覽器不遺失。</li>
+                <li><b>全站備份與還原 (`.json`)</b>：點擊側邊欄「備份全站」下載備份檔；更換電腦時點擊「📥 匯入還原」即可一鍵還原全站！</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- FAQ 常見問題 -->
+          <div class="card guide-faq-card margin-top">
+            <h3><i class="fa-solid fa-circle-question"></i> 常見問題解答 (FAQ)</h3>
+            <div class="faq-list">
+              <div class="faq-item">
+                <div class="faq-q">Q1: 重新整理或關閉瀏覽器後，我設定的資料會遺失嗎？</div>
+                <div class="faq-a">答：不會！所有學生名單、座位表、分組、加分與活動流程均安全存放在您瀏覽器的本機儲存區 (LocalStorage)，重新開啟瀏覽器皆會自動載入。</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">Q2: 如果我要更換電腦，該如何移轉這裡的所有資料？</div>
+                <div class="faq-a">答：請在舊電腦點擊側邊欄底部的「備份全站」，將產生的 `.json` 備份檔傳至新電腦，在新電腦點擊「📥 匯入還原」並選取該備份檔，即可全數還原！</div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-q">Q3: 如何快捷退出全螢幕投影？</div>
+                <div class="faq-a">答：在任何全螢幕投影畫面中（如課堂提醒、計時器、輪盤），按下鍵盤上的 <kbd>ESC</kbd> 鍵即可隨時切換回主畫面。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- 頁尾致謝與版權宣告 -->
+      <footer class="app-site-footer">
+        <p>© 製作人：<strong>Antigravity (Google DeepMind AI Coding Assistant)</strong> &nbsp;|&nbsp; 靈感與設計：<strong>114學年度南寧高中生輔組組長</strong></p>
+      </footer>
+    </main>
+  </div>
+
+  <!-- 全局 Modal 彈出視窗框架 -->
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal-card" id="modalCard">
+      <div class="modal-header">
+        <h3 id="modalTitle">標題</h3>
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- 動態內容 -->
+      </div>
+      <div class="modal-footer" id="modalFooter">
+        <button class="btn btn-secondary" id="modalCancelBtn">取消</button>
+        <button class="btn btn-primary" id="modalConfirmBtn">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript 主控邏輯模組 -->
+  <script src="js/storage.js?v=3.7"></script>
+  <script src="js/audio.js?v=3.7"></script>
+  <script src="js/roster.js?v=3.7"></script>
+  <script src="js/schedule.js?v=3.7"></script>
+  <script src="js/timetable.js?v=3.7"></script>
+  <script src="js/wheel.js?v=3.7"></script>
+  <script src="js/seating.js?v=3.7"></script>
+  <script src="js/groups.js?v=3.7"></script>
+  <script src="js/points.js?v=3.7"></script>
+  <script src="js/homework.js?v=3.7"></script>
+  <script src="js/progress.js?v=3.7"></script>
+  <script src="js/app.js?v=3.7"></script>
+</body>
+</html>

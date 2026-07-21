@@ -1,0 +1,22 @@
+/* 作業追蹤樣式 */
+.homework-select-card {
+  background-color: var(--bg-secondary);
+}
+
+.hw-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.hw-status-badge.submitted { background-color: rgba(118, 138, 115, 0.2); color: var(--color-matcha); }
+.hw-status-badge.missing { background-color: rgba(200, 125, 117, 0.2); color: var(--color-rose); }
+.hw-status-badge.correcting { background-color: rgba(217, 155, 104, 0.2); color: var(--color-amber); }
+.hw-status-badge.late { background-color: rgba(107, 139, 164, 0.2); color: var(--color-info); }

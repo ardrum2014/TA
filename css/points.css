@@ -1,0 +1,68 @@
+/* 加分競賽樣式 */
+.points-mode-switch {
+  display: flex;
+  gap: 8px;
+}
+
+.points-student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.student-point-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.student-point-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-amber);
+}
+
+.student-point-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-espresso);
+}
+
+.student-point-score {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-amber);
+  margin: 6px 0;
+}
+
+.point-btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.team-leaderboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.team-point-card {
+  background-color: var(--bg-card);
+  border: 2px solid var(--color-matcha);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.team-point-score {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--color-amber);
+  margin: 10px 0;
+}

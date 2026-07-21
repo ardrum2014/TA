@@ -1,0 +1,231 @@
+/* 座位表樣式 */
+.seating-toolbar, .seating-control-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.seating-board-card {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.podium-banner {
+  width: 70%;
+  max-width: 400px;
+  background-color: var(--color-espresso);
+  color: var(--text-light);
+  text-align: center;
+  padding: 10px;
+  font-family: var(--font-family-title);
+  font-size: 1.2rem;
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  letter-spacing: 0.1em;
+  box-shadow: var(--shadow-sm);
+}
+
+.seating-grid {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 10px 0;
+}
+
+.seat-cell {
+  background-color: var(--bg-secondary);
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  min-height: 85px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.seat-cell.has-student {
+  background-color: var(--bg-card);
+  border-style: solid;
+  border-color: var(--color-matcha);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+
+.seat-cell.has-student:active {
+  cursor: grabbing;
+}
+
+.seat-cell:hover {
+  border-color: var(--color-amber);
+  background-color: var(--color-latte);
+  transform: translateY(-2px);
+}
+
+.seat-cell.drag-over {
+  border-color: var(--color-amber) !important;
+  background-color: var(--color-latte) !important;
+  transform: scale(1.05) translateY(-2px) !important;
+  box-shadow: 0 0 0 4px rgba(217, 155, 104, 0.3) !important;
+}
+
+.seat-cell.selected {
+  border-color: var(--color-amber) !important;
+  box-shadow: 0 0 0 4px rgba(217, 155, 104, 0.3) !important;
+  background-color: var(--color-latte) !important;
+}
+
+.seat-number {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.seat-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-espresso);
+  margin-top: 2px;
+}
+
+/* ==========================================
+   列印專用媒體查詢 (@media print)
+   僅顯示中間座位表卡片，隱藏側邊欄、標頭與按鈕
+   ========================================== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 12pt !important;
+  }
+
+  /* 隱藏側邊欄、頂部導覽列、所有面板標頭、控制欄位與按鈕 */
+  .sidebar,
+  .app-sidebar,
+  .top-bar,
+  .app-header,
+  .panel-header,
+  .seating-toolbar,
+  .seating-control-card,
+  .btn,
+  .form-control,
+  .form-select,
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  /* 確保主要內容區塊無硬性邊界 */
+  .app-container,
+  .app-content,
+  .main-content,
+  #seating {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* 顯示中間座位表卡片並完美居中 */
+  #seatingBoardCard,
+  .seating-board-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10px !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* 顯現列印專用標題 */
+  #seatingPrintHeader,
+  .seating-print-header {
+    display: block !important;
+    text-align: center !important;
+    margin-bottom: 15px !important;
+  }
+
+  #seatingPrintHeader h2 {
+    font-size: 24pt !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    margin: 0 0 5px 0 !important;
+  }
+
+  #seatingPrintDate {
+    font-size: 10pt !important;
+    color: #555555 !important;
+  }
+
+  /* 講台標籤黑底白字 */
+  .podium-banner {
+    background-color: #2b2622 !important;
+    color: #ffffff !important;
+    border: 1px solid #000000 !important;
+    margin: 10px auto !important;
+    padding: 8px 16px !important;
+    font-size: 14pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 座位網格邊框增強 */
+  .seating-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 10px !important;
+  }
+
+  .seat-cell {
+    border: 1px solid #777777 !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    min-height: 70px !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .seat-cell.has-student {
+    border: 2px solid #2e5a27 !important;
+    background-color: #f7fbf6 !important;
+  }
+
+  .seat-number {
+    color: #555555 !important;
+    font-size: 8pt !important;
+  }
+
+  .seat-name {
+    color: #000000 !important;
+    font-size: 13pt !important;
+    font-weight: bold !important;
+  }
+}

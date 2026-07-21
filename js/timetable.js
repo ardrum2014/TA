@@ -1,0 +1,761 @@
+/**
+ * 教師個人週課表與下一節課即時提醒模組 (支援代課/調課/節次時間自訂/一鍵切換當前班級)
+ */
+const TimetableModule = {
+  data: null,
+  isEditing: false,
+
+  DAY_NAMES: ['', '週一', '週二', '週三', '週四', '週五'],
+
+  init() {
+    this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+    this.bindEvents();
+    this.renderGrid();
+    this.updateSidebarWidget();
+
+    // 每一分鐘或切換班級時自動更新提醒 Widget
+    setInterval(() => this.updateSidebarWidget(), 30000);
+    window.addEventListener('rosterUpdated', () => {
+      this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+      this.renderGrid();
+      this.updateSidebarWidget();
+    });
+  },
+
+  saveData() {
+    StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+    this.renderGrid();
+    this.updateSidebarWidget();
+  },
+
+  bindEvents() {
+    // 編輯/儲存課表按鈕
+    document.getElementById('toggleTimetableEditBtn')?.addEventListener('click', () => {
+      this.isEditing = !this.isEditing;
+      const btn = document.getElementById('toggleTimetableEditBtn');
+      if (btn) {
+        btn.innerHTML = this.isEditing ? 
+          '<i class="fa-solid fa-check"></i> 💾 完成編輯' : 
+          '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯課表';
+        btn.className = this.isEditing ? 'btn btn-success' : 'btn btn-primary';
+      }
+      this.renderGrid();
+    });
+
+    // 節次時間設定按鈕
+    document.getElementById('setupPeriodTimesBtn')?.addEventListener('click', () => {
+      this.openPeriodTimesModal();
+    });
+
+    // 匯出至 Google 日曆 (.ics)
+    document.getElementById('exportGoogleCalendarBtn')?.addEventListener('click', () => {
+      this.exportToICS();
+    });
+
+    // 📥 讀取與訂閱線上 Google 日曆網址 (iCal/ICS 反向同步)
+    document.getElementById('importGoogleCalendarBtn')?.addEventListener('click', () => {
+      this.openGoogleImportModal();
+    });
+
+    // 列印課表
+    document.getElementById('printTimetableBtn')?.addEventListener('click', () => {
+      window.print();
+    });
+  },
+
+  // 開啟 📥 讀取/訂閱 Google 日曆網址彈窗
+  openGoogleImportModal() {
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `📥 讀取並訂閱線上 Google 日曆 (反向自動同步)`;
+
+    const currentUrl = this.data.googleCalendarUrl || '';
+
+    modalBody.innerHTML = `
+      <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main);">
+        <p style="color: var(--color-leaf-green); font-weight: bold; font-size: 1.05rem; margin-bottom: 8px;">
+          🔗 方式一：貼入 Google 日曆網址或非公開 .ics 網址
+        </p>
+        
+        <div style="margin: 10px 0;">
+          <input type="url" id="googleIcalUrlInput" class="form-control" value="${currentUrl}" placeholder="貼入 非公開網址 (iCal 格式) 或 日曆 ID (如 23020-03@nnjh.tn.edu.tw)">
+        </div>
+
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color);">
+          <p style="color: var(--color-terracotta); font-weight: bold; font-size: 1.05rem; margin-bottom: 6px;">
+            📁 方式二：直接上傳 Google 行事曆匯出的 .ics 檔案 (100% 免連線成功)
+          </p>
+          <input type="file" id="localIcsFileInput" accept=".ics" class="form-control">
+        </div>
+
+        <div style="padding: 12px; border-radius: 8px; background: var(--bg-secondary); border: 1px dashed var(--border-color); font-size: 0.85rem; margin-top: 14px;">
+          <b>📖 如何使用「方式一」非公開網址？</b>
+          <ol style="margin-left: 20px; margin-top: 6px; margin-bottom: 4px;">
+            <li>開啟 <a href="https://calendar.google.com" target="_blank" style="color: var(--color-terracotta); text-decoration: underline;">Google 日曆網頁版</a>，點擊左側日曆旁的 <b>「⋮」->「設定與共用」</b>。</li>
+            <li>捲動至最下方找到 <b>「整合日曆」</b>。</li>
+            <li>在 <b>「非公開網址 (iCal 格式)」</b> 處按右側 <b>📋 複製圖示</b>，貼至上面方式一即可！</li>
+          </ol>
+        </div>
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '📥 讀取網址並同步';
+    confirmBtn.className = 'btn btn-accent';
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+      confirmBtn.textContent = '確定';
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    // 監聽方式二：本機檔案上傳
+    document.getElementById('localIcsFileInput')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        closeModal();
+        this.loadIcsFile(file);
+      }
+    });
+
+    confirmBtn.onclick = () => {
+      const url = document.getElementById('googleIcalUrlInput').value.trim();
+      if (!url) {
+        alert('請輸入 Google 日曆網址或選取 .ics 檔案！');
+        return;
+      }
+      closeModal();
+      this.syncFromGoogleCalendarUrl(url);
+    };
+  },
+
+  // 本機直接讀取解析 .ics 檔案 (離線 100% 成功)
+  loadIcsFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const icsText = e.target.result;
+        const events = this.parseICS(icsText);
+        if (events.length === 0) {
+          return alert('未在該 .ics 檔案中找到任何有效的行程活動！');
+        }
+        this.data.remoteEvents = events;
+        this.saveData();
+        alert(`🎉 成功從行事曆檔案【${file.name}】讀取並匯入了 ${events.length} 個行程活動！`);
+      } catch (err) {
+        alert(`解析 .ics 檔案失敗：${err.message || err}`);
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  // 從 Google 日曆 iCal / ICS 網址抓取與解析行程 (帶有 4 秒超時防護與代理切換)
+  async syncFromGoogleCalendarUrl(url) {
+    if (!url) return;
+
+    try {
+      let fetchUrl = url.trim();
+
+      // 1. 若使用者填入 日曆 ID (例如: test@gmail.com)
+      if (!fetchUrl.startsWith('http') && fetchUrl.includes('@')) {
+        fetchUrl = `https://calendar.google.com/calendar/ical/${encodeURIComponent(fetchUrl)}/public/basic.ics`;
+      }
+
+      // 2. 若使用者貼入網頁內嵌網址 (embed)
+      if (fetchUrl.includes('calendar.google.com/calendar/embed')) {
+        const match = fetchUrl.match(/src=([^&]+)/);
+        if (match && match[1]) {
+          fetchUrl = `https://calendar.google.com/calendar/ical/${match[1]}/public/basic.ics`;
+        }
+      }
+
+      let icsText = null;
+
+      const fetchWithTimeout = async (srcUrl, timeoutMs = 4000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(srcUrl, { signal: controller.signal });
+          clearTimeout(id);
+          if (res.ok) {
+            const txt = await res.text();
+            if (txt && txt.includes('BEGIN:VCALENDAR')) return txt;
+          }
+        } catch (e) {
+          clearTimeout(id);
+        }
+        return null;
+      };
+
+      // 嘗試直接連線或代理連線
+      icsText = await fetchWithTimeout(fetchUrl);
+      if (!icsText) {
+        icsText = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}`);
+      }
+      if (!icsText) {
+        icsText = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
+      }
+
+      if (!icsText) {
+        return alert(`💡 網路連線提醒：\n受限於瀏覽器跨網域安全保護 (CORS) 限制，網頁無法直接聯網讀取此 Google 日曆密用網址。\n\n請改用「方式二：上傳 .ics 檔案」：\n點擊視窗中的「方式二：選擇檔案」，選取您從 Google 日曆「匯出」下載的 .ics 檔，即可 100% 秒速離線匯入！`);
+      }
+
+      const events = this.parseICS(icsText);
+
+      if (events.length === 0) {
+        return alert('未能從該日曆讀取到任何行程，請確認日曆中是否有建立行程活動！');
+      }
+
+      this.data.googleCalendarUrl = fetchUrl;
+      this.data.remoteEvents = events;
+      this.saveData();
+
+      alert(`🎉 成功從您的 Google 日曆自動讀取並同步了 ${events.length} 個行程活動！`);
+    } catch (err) {
+      alert(`💡 建議解法：\n請使用「方式二：上傳 .ics 檔案」，選取您從 Google 日曆下載的 .ics 檔案即可 100% 秒速匯入！`);
+      console.error(err);
+    }
+  },
+
+  // 簡易通用 iCalendar (ICS) 格式解析器
+  parseICS(icsText) {
+    const events = [];
+    const lines = icsText.split(/\r?\n/);
+    let inEvent = false;
+    let currentEvent = {};
+
+    for (let line of lines) {
+      if (line.startsWith('BEGIN:VEVENT')) {
+        inEvent = true;
+        currentEvent = {};
+      } else if (line.startsWith('END:VEVENT')) {
+        inEvent = false;
+        if (currentEvent.summary) {
+          events.push(currentEvent);
+        }
+      } else if (inEvent) {
+        if (line.startsWith('SUMMARY:')) currentEvent.summary = line.replace('SUMMARY:', '').trim();
+        else if (line.startsWith('LOCATION:')) currentEvent.location = line.replace('LOCATION:', '').trim();
+        else if (line.startsWith('DESCRIPTION:')) currentEvent.description = line.replace('DESCRIPTION:', '').trim();
+        else if (line.startsWith('DTSTART')) currentEvent.dtstart = line.split(':')[1] || '';
+        else if (line.startsWith('DTEND')) currentEvent.dtend = line.split(':')[1] || '';
+      }
+    }
+    return events;
+  },
+
+  // 匯出全週課表為 .ics 標準行事曆檔案 (相容 Google Calendar, Apple Calendar, Outlook)
+  exportToICS() {
+    if (!this.data || !this.data.periods) return alert('目前尚無課表資料！');
+
+    const periods = this.data.periods;
+    const grid = this.data.grid || {};
+
+    let icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Nanning Cafe//Teacher Weekly Schedule//ZH',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:南寧高中-教師個人週課表'
+    ];
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const distanceToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + distanceToMon);
+
+    const pad = num => String(num).padStart(2, '0');
+
+    for (let day = 1; day <= 5; day++) {
+      const targetDate = new Date(monday);
+      targetDate.setDate(monday.getDate() + (day - 1));
+
+      const yyyy = targetDate.getFullYear();
+      const mm = pad(targetDate.getMonth() + 1);
+      const dd = pad(targetDate.getDate());
+
+      for (let p of periods) {
+        const cellKey = `${day}_${p.period}`;
+        const cell = grid[cellKey];
+
+        if (cell && cell.className && cell.className !== '空堂' && cell.className !== '無課') {
+          const startParts = (p.startTime || '08:00').split(':');
+          const endParts = (p.endTime || '09:00').split(':');
+
+          const dtStart = `${yyyy}${mm}${dd}T${pad(startParts[0])}${pad(startParts[1])}00`;
+          const dtEnd = `${yyyy}${mm}${dd}T${pad(endParts[0])}${pad(endParts[1])}00`;
+
+          const summary = `[${cell.className}] ${cell.subject || '課程'}`;
+          const location = cell.location || '';
+          const description = cell.substitute ? `代課備註：${cell.substitute}` : '南寧高中每週固定課程';
+
+          icsContent.push('BEGIN:VEVENT');
+          icsContent.push(`SUMMARY:${summary}`);
+          icsContent.push(`DTSTART:${dtStart}`);
+          icsContent.push(`DTEND:${dtEnd}`);
+          icsContent.push(`RRULE:FREQ=WEEKLY;BYDAY=${['', 'MO', 'TU', 'WE', 'TH', 'FR'][day]}`);
+          if (location) icsContent.push(`LOCATION:${location}`);
+          icsContent.push(`DESCRIPTION:${description}`);
+          icsContent.push('END:VEVENT');
+        }
+      }
+    }
+
+    icsContent.push('END:VCALENDAR');
+
+    const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+
+    const timestamp = StorageManager.getFormattedTimestamp();
+    link.download = `${timestamp}_教師個人課表_Google行事曆匯入檔.ics`;
+    link.click();
+
+    setTimeout(() => {
+      this.openGoogleCalendarHelpModal();
+    }, 500);
+  },
+
+  // 開啟 Google 行事曆匯入說明彈窗
+  openGoogleCalendarHelpModal() {
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `📅 成功匯出！匯入至 Google 行事曆說明`;
+
+    modalBody.innerHTML = `
+      <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main);">
+        <p style="color: var(--color-leaf-green); font-weight: bold; font-size: 1.05rem;">
+          🎉 已成功生成並下載【.ics 通用行事曆檔案】！
+        </p>
+        <p>請按照以下 3 個步驟，即可將全週課表同步至您的 <b>Google 行事曆</b>（手機/電腦跨裝置同步）：</p>
+        <ol style="margin-left: 20px; margin-bottom: 16px;">
+          <li style="margin-bottom: 6px;">點擊下方按鈕開啟 <b><a href="https://calendar.google.com/calendar/u/0/r/settings/export" target="_blank" style="color: var(--color-terracotta); text-decoration: underline;">Google 日曆「匯入與匯出」頁面</a></b>。</li>
+          <li style="margin-bottom: 6px;">點擊<b>「從電腦中選取檔案」</b>，選擇剛下載的 <code>.ics</code> 課表檔案。</li>
+          <li style="margin-bottom: 6px;">選擇要加入的目標日曆（如個人主要日曆），並點擊<b>「匯入」</b>按鈕。</li>
+        </ol>
+        <div style="padding: 12px; border-radius: 8px; background: var(--bg-secondary); border: 1px dashed var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+          💡 提示：匯入後每週的課表會自動按時間出現在您的 Google 日曆中，手機也會自動收到上課通知提醒！
+        </div>
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '📆 開啟 Google 日曆設定';
+    confirmBtn.className = 'btn btn-primary';
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+      confirmBtn.textContent = '確定';
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    confirmBtn.onclick = () => {
+      window.open('https://calendar.google.com/calendar/u/0/r/settings/export', '_blank');
+      closeModal();
+    };
+  },
+
+  // 一鍵單節新增至 Google 日曆
+  openGoogleQuickAdd(day, period) {
+    const cellKey = `${day}_${period}`;
+    const cell = this.data.grid[cellKey];
+    if (!cell || !cell.className) return alert('此節課尚無班級資料！');
+
+    const periodObj = (this.data.periods || []).find(p => p.period === period) || { startTime: '08:10', endTime: '09:00' };
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const distanceToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + distanceToMon + (day - 1));
+
+    const pad = n => String(n).padStart(2, '0');
+    const yyyy = targetDate.getFullYear();
+    const mm = pad(targetDate.getMonth() + 1);
+    const dd = pad(targetDate.getDate());
+
+    const startParts = (periodObj.startTime || '08:10').split(':');
+    const endParts = (periodObj.endTime || '09:00').split(':');
+
+    const dtStart = `${yyyy}${mm}${dd}T${pad(startParts[0])}${pad(startParts[1])}00`;
+    const dtEnd = `${yyyy}${mm}${dd}T${pad(endParts[0])}${pad(endParts[1])}00`;
+
+    const title = encodeURIComponent(`[${cell.className}] ${cell.subject || '課程'}`);
+    const details = encodeURIComponent(cell.substitute ? `代課備註：${cell.substitute}` : '南寧高中課表排程');
+    const location = encodeURIComponent(cell.location || '');
+
+    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}&location=${location}`;
+    window.open(googleUrl, '_blank');
+  },
+
+  // 計算並更新側邊欄時間下方的「📢 下一節課提醒」Widget
+  updateSidebarWidget() {
+    const textEl = document.getElementById('nextClassText');
+    if (!textEl) return;
+
+    const info = this.calculateNextClassInfo();
+    textEl.innerHTML = info.html;
+  },
+
+  // 計算下一節課與目前課程邏輯
+  calculateNextClassInfo() {
+    if (!this.data || !this.data.periods) {
+      return { html: '<span style="color:var(--text-muted);">課表載入中...</span>' };
+    }
+
+    const now = new Date();
+    let day = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+
+    const timeToMins = (timeStr) => {
+      if (!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    // 假日 (週六、週日)：提醒週一第一節
+    if (day === 0 || day === 6) {
+      const monFirst = this.data.grid['1_1'];
+      if (monFirst && monFirst.className) {
+        return {
+          html: `📅 週一第 1 節：<b style="color:var(--color-terracotta);">${monFirst.className}</b> ${monFirst.subject}`
+        };
+      }
+      return { html: '☕ 週末假期，祝您休息愉快！' };
+    }
+
+    const periods = this.data.periods;
+    let currentCourse = null;
+    let nextCourse = null;
+
+    for (let p of periods) {
+      const start = timeToMins(p.startTime);
+      const end = timeToMins(p.endTime);
+      const cellKey = `${day}_${p.period}`;
+      const cell = this.data.grid[cellKey];
+
+      if (cell && cell.className && cell.className !== '空堂' && cell.className !== '無課') {
+        // 目前正在上課中
+        if (currentMins >= start && currentMins < end) {
+          currentCourse = { period: p, cell };
+        }
+        // 即將到來的下一節課
+        else if (currentMins < start && !nextCourse) {
+          nextCourse = { period: p, cell };
+        }
+      }
+    }
+
+    // 1. 若目前正在上課中
+    if (currentCourse) {
+      const subBadge = currentCourse.cell.substitute ? 
+        `<span style="color:var(--color-amber); font-weight:bold;"> [代課: ${currentCourse.cell.substitute}]</span>` : '';
+      return {
+        html: `⚡ 上課中 (${currentCourse.period.name})：<b style="color:var(--color-leaf-green);">${currentCourse.cell.className}</b> ${currentCourse.cell.subject}${subBadge}`
+      };
+    }
+
+    // 2. 若今天接下來還有課
+    if (nextCourse) {
+      const subBadge = nextCourse.cell.substitute ? 
+        `<span style="color:var(--color-amber); font-weight:bold;"> [代課: ${nextCourse.cell.substitute}]</span>` : '';
+      return {
+        html: `📢 下一節 (${nextCourse.period.startTime})：<b style="color:var(--color-terracotta);">${nextCourse.cell.className}</b> ${nextCourse.cell.subject}${subBadge}`
+      };
+    }
+
+    // 3. 今天課程已結束，尋找明天或週一的第一節課
+    let nextDay = day + 1;
+    if (nextDay > 5) nextDay = 1;
+    const nextDayName = this.DAY_NAMES[nextDay] || '明天';
+
+    for (let p of periods) {
+      const cellKey = `${nextDay}_${p.period}`;
+      const cell = this.data.grid[cellKey];
+      if (cell && cell.className && cell.className !== '空堂') {
+        const subBadge = cell.substitute ? ` [代: ${cell.substitute}]` : '';
+        return {
+          html: `🌅 ${nextDayName}第 ${p.period} 節 (${p.startTime})：<b>${cell.className}</b> ${cell.subject}${subBadge}`
+        };
+      }
+    }
+
+    return { html: '✨ 今日與明日無課，享受充實時光！' };
+  },
+
+  // 渲染 5 天 x 8 節 主課表表格
+  renderGrid() {
+    const container = document.getElementById('timetableGridContainer');
+    if (!container) return;
+
+    const periods = this.data.periods || [];
+    const grid = this.data.grid || {};
+
+    let html = `
+      <div class="table-responsive">
+        <table class="table table-bordered timetable-table" style="width:100%; border-collapse:collapse; text-align:center;">
+          <thead>
+            <tr style="background: var(--bg-secondary); color: var(--text-main);">
+              <th style="width: 12%; padding: 12px;">節次 / 時間</th>
+              <th style="width: 17.6%; padding: 12px;">星期一</th>
+              <th style="width: 17.6%; padding: 12px;">星期二</th>
+              <th style="width: 17.6%; padding: 12px;">星期三</th>
+              <th style="width: 17.6%; padding: 12px;">星期四</th>
+              <th style="width: 17.6%; padding: 12px;">星期五</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    periods.forEach(p => {
+      html += `
+        <tr>
+          <td style="background: var(--bg-secondary); vertical-align: middle; padding: 10px 6px;">
+            <div style="font-weight: bold; font-family: var(--font-family-title);">${p.name}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">${p.startTime} - ${p.endTime}</div>
+          </td>
+      `;
+
+      for (let day = 1; day <= 5; day++) {
+        const cellKey = `${day}_${p.period}`;
+        const cell = grid[cellKey] || { className: '', subject: '', location: '', substitute: '', substituteNote: '' };
+        const hasClass = cell.className && cell.className !== '空堂' && cell.className !== '無課';
+
+        html += `
+          <td class="timetable-cell ${hasClass ? 'has-class' : 'empty-cell'}" 
+              style="position: relative; vertical-align: middle; padding: 10px; cursor: pointer; border: 1px solid var(--border-color); background: ${hasClass ? 'var(--bg-card)' : 'transparent'};"
+              onclick="TimetableModule.handleCellClick(${day}, ${p.period})">
+        `;
+
+        if (hasClass) {
+          html += `
+            <div style="font-size: 1.05rem; font-weight: bold; color: var(--color-terracotta);">${cell.className}</div>
+            <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-main); margin-top: 2px;">${cell.subject || '-'}</div>
+            ${cell.location ? `<div style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> ${cell.location}</div>` : ''}
+          `;
+
+          // 若有代課備註
+          if (cell.substitute) {
+            html += `
+              <div style="margin-top: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(217, 119, 6, 0.15); color: #d97706; font-size: 0.75rem; font-weight: bold;">
+                <i class="fa-solid fa-user-group"></i> ${cell.substitute}
+              </div>
+            `;
+          }
+
+          // 快捷按鈕
+          if (!this.isEditing) {
+            html += `
+              <div style="margin-top: 6px; display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                <button type="button" class="btn btn-sm btn-chip" style="font-size: 0.75rem; padding: 2px 6px;" title="點擊切換為當前班級" onclick="event.stopPropagation(); TimetableModule.switchToClass('${cell.className}')">
+                  🚀 切換此班
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.75rem; padding: 2px 6px;" title="新增此單節課程至 Google 日曆" onclick="event.stopPropagation(); TimetableModule.openGoogleQuickAdd(${day}, ${p.period})">
+                  📆 加至日曆
+                </button>
+              </div>
+            `;
+          }
+        } else {
+          html += `<div style="color: var(--text-muted); font-size: 0.85rem;">${this.isEditing ? '（+ 點擊編輯）' : '—'}</div>`;
+        }
+
+        if (this.isEditing) {
+          html += `
+            <div style="position: absolute; top: 4px; right: 4px; color: var(--color-leaf-green); font-size: 0.8rem;">
+              <i class="fa-solid fa-pen"></i>
+            </div>
+          `;
+        }
+
+        html += `</td>`;
+      }
+
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  },
+
+  // 快捷切換當前班級
+  switchToClass(className) {
+    if (!className) return;
+    if (typeof changeActiveClassWithGuard === 'function') {
+      changeActiveClassWithGuard(className);
+    } else {
+      StorageManager.set(StorageManager.KEYS.ACTIVE_CLASS, className);
+      window.dispatchEvent(new Event('rosterUpdated'));
+    }
+  },
+
+  // 點擊格子開啟編輯彈窗
+  handleCellClick(day, period) {
+    const cellKey = `${day}_${period}`;
+    const cell = this.data.grid[cellKey] || { className: '', subject: '', location: '', substitute: '', substituteNote: '' };
+    const periodObj = (this.data.periods || []).find(p => p.period === period) || { name: `第 ${period} 節` };
+
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    const dayName = this.DAY_NAMES[day] || `週${day}`;
+    modalTitle.textContent = `✏️ 編輯課表格子（${dayName} ${periodObj.name}）`;
+
+    // 取得所有可用班級選單
+    const classesMap = StorageManager.get(StorageManager.KEYS.CLASSES, StorageManager.getDefaultClasses());
+    const classOptions = Object.keys(classesMap).sort((a, b) => a.localeCompare(b, 'zh-TW', { numeric: true }));
+
+    modalBody.innerHTML = `
+      <form id="cellEditForm" style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課班級：</label>
+          <input type="text" id="cellClassName" list="classOptionsList" class="form-control" value="${cell.className || ''}" placeholder="例如：501班 或 401班 (留空代表空堂)">
+          <datalist id="classOptionsList">
+            ${classOptions.map(cls => `<option value="${cls}">`).join('')}
+          </datalist>
+        </div>
+
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課科目 / 活動名稱：</label>
+          <input type="text" id="cellSubject" class="form-control" value="${cell.subject || ''}" placeholder="例如：生活科技、資訊科技、班會">
+        </div>
+
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">上課教室 / 地點：</label>
+          <input type="text" id="cellLocation" class="form-control" value="${cell.location || ''}" placeholder="例如：生科教室、電腦教室">
+        </div>
+
+        <div style="padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+          <label style="font-weight: bold; margin-bottom: 6px; display: block; color: var(--color-terracotta);">
+            <i class="fa-solid fa-user-group"></i> 代課 / 請假 / 調課紀錄 (選填)：
+          </label>
+          <input type="text" id="cellSubstitute" class="form-control" value="${cell.substitute || ''}" placeholder="例如：由張明雄老師代課 / 代陳老師502班">
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            提示：若有教務處派代或請假代課，輸入備註將會高亮顯示於課表與下一節提醒中！
+          </div>
+        </div>
+      </form>
+    `;
+
+    backdrop.classList.remove('hidden');
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    confirmBtn.onclick = () => {
+      const className = document.getElementById('cellClassName').value.trim();
+      const subject = document.getElementById('cellSubject').value.trim();
+      const location = document.getElementById('cellLocation').value.trim();
+      const substitute = document.getElementById('cellSubstitute').value.trim();
+
+      if (!className) {
+        delete this.data.grid[cellKey];
+      } else {
+        this.data.grid[cellKey] = {
+          className,
+          subject,
+          location,
+          substitute
+        };
+      }
+
+      this.saveData();
+      closeModal();
+    };
+  },
+
+  // 開啟節次時間調整彈窗
+  openPeriodTimesModal() {
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `⚙️ 設定各節次上課時間`;
+
+    const periods = this.data.periods || [];
+
+    modalBody.innerHTML = `
+      <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">
+        您可以修改各節次名稱與上下課精確時間（時間將用於左下角下一節課自動提醒！）：
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
+        ${periods.map((p, idx) => `
+          <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-secondary); padding: 8px; border-radius: 6px;">
+            <input type="text" class="form-control period-name-input" data-idx="${idx}" value="${p.name}" style="width: 90px;">
+            <input type="time" class="form-control period-start-input" data-idx="${idx}" value="${p.startTime}">
+            <span>至</span>
+            <input type="time" class="form-control period-end-input" data-idx="${idx}" value="${p.endTime}">
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    confirmBtn.onclick = () => {
+      const nameInputs = document.querySelectorAll('.period-name-input');
+      const startInputs = document.querySelectorAll('.period-start-input');
+      const endInputs = document.querySelectorAll('.period-end-input');
+
+      nameInputs.forEach((input, idx) => {
+        if (periods[idx]) {
+          periods[idx].name = input.value.trim() || `第 ${idx + 1} 節`;
+          periods[idx].startTime = startInputs[idx].value;
+          periods[idx].endTime = endInputs[idx].value;
+        }
+      });
+
+      this.data.periods = periods;
+      this.saveData();
+      closeModal();
+    };
+  }
+};

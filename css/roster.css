@@ -1,0 +1,15 @@
+/* 名條管理樣式 */
+.roster-class-manager {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.student-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-primary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}

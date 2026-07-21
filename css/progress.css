@@ -1,0 +1,67 @@
+/* 課程進度樣式 */
+.progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+}
+
+.progress-card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.subject-title {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.subject-title:hover {
+  color: var(--color-amber);
+}
+
+.progress-bar-container {
+  height: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-matcha) 0%, var(--color-amber) 100%);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.chapter-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-color);
+  font-size: 0.95rem;
+}
+
+.chapter-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.chapter-item:last-child { border-bottom: none; }
+
+.chapter-item.completed span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
