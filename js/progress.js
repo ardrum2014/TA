@@ -74,8 +74,39 @@ const ProgressModule = {
 
   getActiveSubjects() {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
-    if (!this.progressMap[activeClass]) {
-      this.progressMap[activeClass] = [];
+    if (!this.progressMap[activeClass] || !Array.isArray(this.progressMap[activeClass]) || this.progressMap[activeClass].length === 0) {
+      this.progressMap[activeClass] = [
+        {
+          id: 'sub_' + Date.now() + '_1',
+          title: `📖 國語 (${activeClass})`,
+          chapters: [
+            {
+              id: 'c1_' + Date.now(),
+              name: '第一課 課文導讀與習作',
+              done: false,
+              homeworks: [
+                { id: 'hw1_' + Date.now(), title: '第一課 習作', records: {} }
+              ]
+            },
+            { id: 'c2_' + Date.now(), name: '第二課 課文朗讀與習作', done: false, homeworks: [] }
+          ]
+        },
+        {
+          id: 'sub_' + Date.now() + '_2',
+          title: `📐 數學 (${activeClass})`,
+          chapters: [
+            {
+              id: 'm1_' + Date.now(),
+              name: '單元一 數的計算與應用',
+              done: false,
+              homeworks: [
+                { id: 'mhw1_' + Date.now(), title: '單元一 練習本', records: {} }
+              ]
+            }
+          ]
+        }
+      ];
+      StorageManager.set(StorageManager.KEYS.PROGRESS, this.progressMap);
     }
     return this.progressMap[activeClass];
   },

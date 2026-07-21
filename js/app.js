@@ -44,6 +44,22 @@ function initTabs() {
       const panel = document.getElementById(targetTab);
       if (panel) panel.classList.add('active');
 
+      // 觸發切換目標頁面之即時動態渲染 (徹底防止畫面空白)
+      if (targetTab === 'progress' && typeof ProgressModule !== 'undefined') {
+        ProgressModule.render();
+      } else if (targetTab === 'timetable' && typeof TimetableModule !== 'undefined') {
+        TimetableModule.renderGrid();
+        TimetableModule.updateSidebarWidget();
+      } else if (targetTab === 'seating' && typeof SeatingModule !== 'undefined') {
+        SeatingModule.render();
+      } else if (targetTab === 'groups' && typeof GroupsModule !== 'undefined') {
+        GroupsModule.render();
+      } else if (targetTab === 'points' && typeof PointsModule !== 'undefined') {
+        PointsModule.render();
+      } else if (targetTab === 'roster' && typeof RosterModule !== 'undefined') {
+        RosterModule.renderRosterTable();
+      }
+
       // 手機版自動關閉側邊欄
       document.getElementById('sidebar')?.classList.remove('show');
     });
