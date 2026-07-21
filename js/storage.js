@@ -16,6 +16,7 @@ const StorageManager = {
   },
 
   // 預設教師個人課表 (標準中學8節課次與預設課表結構)
+  // 預設教師個人課表 (標準中學8節課次與預設課表結構)
   getDefaultTimetable() {
     return {
       periods: [
@@ -32,11 +33,24 @@ const StorageManager = {
         "1_1": { className: "501班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
         "1_2": { className: "501班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
         "1_3": { className: "401班", subject: "資訊科技", location: "電腦教室", substitute: "", substituteNote: "" },
+        "1_5": { className: "106班", subject: "生物科技", location: "理化實驗室", substitute: "", substituteNote: "" },
+        "1_6": { className: "106班", subject: "生物科技", location: "理化實驗室", substitute: "", substituteNote: "" },
         "2_1": { className: "402班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
         "2_2": { className: "402班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "2_3": { className: "501班", subject: "彈性學習", location: "501教室", substitute: "", substituteNote: "" },
+        "2_5": { className: "105班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "2_6": { className: "105班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "3_1": { className: "401班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "3_2": { className: "401班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
         "3_5": { className: "501班", subject: "班會與導師時間", location: "501教室", substitute: "", substituteNote: "" },
+        "3_6": { className: "教師研習", subject: "備課研究", location: "生科準備室", substitute: "", substituteNote: "" },
+        "4_1": { className: "402班", subject: "資訊科技", location: "電腦教室", substitute: "", substituteNote: "" },
+        "4_2": { className: "402班", subject: "資訊科技", location: "電腦教室", substitute: "", substituteNote: "" },
         "4_3": { className: "401班", subject: "生活科技", location: "生科教室", substitute: "由張老師代課", substituteNote: "教務處公假代課" },
-        "5_1": { className: "501班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" }
+        "4_5": { className: "106班", subject: "專題研究", location: "圖書館", substitute: "", substituteNote: "" },
+        "5_1": { className: "501班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "5_2": { className: "501班", subject: "生活科技", location: "生科教室", substitute: "", substituteNote: "" },
+        "5_5": { className: "全校社團", subject: "創客社團", location: "創客中心", substitute: "", substituteNote: "" }
       }
     };
   },

@@ -150,13 +150,7 @@ const ProgressModule = {
   },
 
   bindEvents() {
-    // 新增科目
-    document.getElementById('addProgressSubjectBtn')?.addEventListener('click', () => this.addSubject());
-
-    // 下載進度與作業匯入範例檔
-    document.getElementById('downloadProgressSampleBtn')?.addEventListener('click', () => this.downloadSample());
-
-    // 匯入進度與作業 Excel
+    // 匯入進度與作業 Excel 檔案變更事件
     document.getElementById('progressExcelInput')?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -548,17 +542,143 @@ const ProgressModule = {
     }
   },
 
-  // 切換目前選取的作業項目 (展開學生繳交表格)
-  selectActiveHomework(subId, cId, hwId) {
-    if (this.activeHwContext && this.activeHwContext.hwId === hwId) {
-      this.activeHwContext = null;
-    } else {
-      this.activeHwContext = { subId, cId, hwId };
-    }
-    this.render();
+  // 點擊作業項目開啟【學生作業繳交檢核彈窗】 (螢幕中央彈出)
+  openHomeworkModal(subId, cId, hwId) {
+    const subjects = this.getActiveSubjects();
+    const sub = subjects.find(s => s.id === subId);
+    if (!sub) return;
+    const ch = sub.chapters.find(c => c.id === cId);
+    if (!ch || !ch.homeworks) return;
+    const hw = ch.homeworks.find(h => h.id === hwId);
+    if (!hw) return;
+
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    const students = StorageManager.getActiveClassStudents();
+
+    const submittedCount = students.filter(st => {
+      const s = hw.records[st.id] || 'missing';
+      return s === 'submitted' || s === 'late';
+    }).length;
+
+    const totalStudents = students.length;
+    const percent = totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0;
+
+    modalTitle.textContent = `📌 【${sub.title} - ${hw.title}】作業繳交檢核表 (${activeClass})`;
+
+    modalBody.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div>
+            <div style="font-weight: bold; color: var(--color-terracotta); font-size: 1.05rem;">
+              章節：${ch.name}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+              全班繳交進度：<strong style="color: var(--color-leaf-green);">${submittedCount} / ${totalStudents} 人已繳</strong> (${percent}%)
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-accent" onclick="ProgressModule.copyMissingList('${subId}', '${cId}', '${hwId}')">
+              📋 複製未繳名單
+            </button>
+            <button class="btn btn-sm btn-chip" onclick="ProgressModule.markAllHwStatus('${subId}', '${cId}', '${hwId}', 'submitted')">
+              ✅ 全班標示已繳
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="ProgressModule.markAllHwStatus('${subId}', '${cId}', '${hwId}', 'missing')">
+              ❌ 全班重置未繳
+            </button>
+          </div>
+        </div>
+
+        <div style="max-height: 55vh; overflow-y: auto; padding-right: 4px;">
+          <table class="table table-hover" style="width:100%; border-collapse:collapse; text-align:center;">
+            <thead>
+              <tr style="background: var(--bg-secondary); position: sticky; top: 0; z-index: 1;">
+                <th style="width: 15%; padding: 8px;">座號</th>
+                <th style="width: 25%; padding: 8px;">學生姓名</th>
+                <th style="width: 40%; padding: 8px;">繳交狀態 (點擊切換)</th>
+                <th style="width: 20%; padding: 8px;">學生備註</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${students.length === 0 ? `
+                <tr><td colspan="4" class="text-center text-muted" style="padding:15px;">目前班級尚無學生資料！</td></tr>
+              ` : students.map(st => {
+                const statusKey = hw.records[st.id] || 'missing';
+                const statusLabel = this.STATUS_LABELS[statusKey] || '未繳 ❌';
+                let btnClass = 'btn-outline-danger';
+                if (statusKey === 'submitted') btnClass = 'btn-success';
+                if (statusKey === 'correcting') btnClass = 'btn-warning';
+                if (statusKey === 'late') btnClass = 'btn-info';
+
+                return `
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 8px; vertical-align: middle; font-weight: bold;">#${st.number}</td>
+                    <td style="padding: 8px; vertical-align: middle; font-weight: 500;">${st.name}</td>
+                    <td style="padding: 8px; vertical-align: middle;">
+                      <button class="btn btn-sm ${btnClass}" style="width: 100%; max-width: 150px; font-weight: bold;" onclick="ProgressModule.toggleStudentModalHwStatus('${subId}', '${cId}', '${hwId}', '${st.id}')">
+                        ${statusLabel}
+                      </button>
+                    </td>
+                    <td style="padding: 8px; vertical-align: middle; font-size: 0.85rem; color: var(--text-muted);">${st.note || st.gender || '-'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '關閉';
+    confirmBtn.className = 'btn btn-primary';
+
+    const closeModal = () => {
+      backdrop.classList.add('hidden');
+      this.render(); // 關閉時刷卡片人數
+    };
+
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    confirmBtn.onclick = closeModal;
   },
 
-  // 點擊切換學生繳交狀態 (已繳 🟢 -> 待訂正 🟡 -> 補繳 🔵 -> 未繳 ❌)
+  // 彈窗內點擊切換學生繳交狀態
+  toggleStudentModalHwStatus(subId, cId, hwId, studentId) {
+    this.toggleStudentHwStatus(subId, cId, hwId, studentId);
+    this.openHomeworkModal(subId, cId, hwId);
+  },
+
+  // 批量標示全班狀態 (全班已繳 / 全班未繳)
+  markAllHwStatus(subId, cId, hwId, targetStatus) {
+    const subjects = this.getActiveSubjects();
+    const sub = subjects.find(s => s.id === subId);
+    if (!sub) return;
+    const ch = sub.chapters.find(c => c.id === cId);
+    if (!ch || !ch.homeworks) return;
+    const hw = ch.homeworks.find(h => h.id === hwId);
+    if (!hw) return;
+
+    const students = StorageManager.getActiveClassStudents();
+    students.forEach(st => {
+      hw.records[st.id] = targetStatus;
+    });
+
+    this.saveActiveSubjects(subjects);
+    this.openHomeworkModal(subId, cId, hwId);
+  },
+
+  // 點擊切換學生繳交狀態
   toggleStudentHwStatus(subId, cId, hwId, studentId) {
     const subjects = this.getActiveSubjects();
     const sub = subjects.find(s => s.id === subId);
@@ -683,7 +803,7 @@ const ProgressModule = {
                     </div>
                   </div>
 
-                  <!-- 本章節下的作業項目 Pills -->
+                  <!-- 本章節下的作業項目 Pills (點擊直接於螢幕中央彈出檢核視窗) -->
                   <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
                     ${hwList.length === 0 ? `
                       <span class="text-muted" style="font-size:0.8rem; font-style:italic;">(無作業，點擊右側「+ 新增作業」)</span>
@@ -693,13 +813,10 @@ const ProgressModule = {
                         return s === 'submitted' || s === 'late';
                       }).length;
 
-                      const isSelected = this.activeHwContext &&
-                        this.activeHwContext.hwId === hw.id;
-
                       return `
-                        <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:16px; border:1.5px solid ${isSelected ? 'var(--color-leaf-green)' : 'var(--border-color)'}; background:${isSelected ? 'var(--color-latte)' : 'var(--bg-card)'}; font-size:0.85rem;">
-                          <span style="cursor:pointer; font-weight:bold;" onclick="ProgressModule.selectActiveHomework('${sub.id}', '${ch.id}', '${hw.id}')">
-                            📝 ${hw.title} <span style="font-size:0.75rem; color:var(--text-muted);">(${submittedCount}/${totalStudents}人已繳)</span>
+                        <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:16px; border:1.5px solid var(--color-leaf-green); background:var(--bg-card); font-size:0.85rem;">
+                          <span style="cursor:pointer; font-weight:bold; color:var(--text-main);" onclick="ProgressModule.openHomeworkModal('${sub.id}', '${ch.id}', '${hw.id}')" title="點擊於彈窗中點選學生繳交狀態">
+                            📝 ${hw.title} <span style="font-size:0.75rem; color:var(--color-terracotta); font-weight:bold;">(${submittedCount}/${totalStudents}人已繳)</span>
                           </span>
                           <button type="button" style="border:none; background:transparent; color:#d9534f; cursor:pointer; font-weight:bold; font-size:0.85rem;" title="刪除此作業" onclick="ProgressModule.deleteHomeworkFromChapter('${sub.id}', '${ch.id}', '${hw.id}')">
                             &times;
@@ -715,73 +832,6 @@ const ProgressModule = {
         </div>
       `;
     }).join('');
-
-    // 若有選取中的作業項目，於下方渲染【學生作業繳交狀態點擊切換矩陣表】
-    if (this.activeHwContext) {
-      const { subId, cId, hwId } = this.activeHwContext;
-      const sub = subjects.find(s => s.id === subId);
-      const ch = sub ? sub.chapters.find(c => c.id === cId) : null;
-      const hw = ch ? (ch.homeworks || []).find(h => h.id === hwId) : null;
-
-      if (sub && ch && hw) {
-        const students = StorageManager.getActiveClassStudents();
-        html += `
-          <div class="card margin-top" style="background: var(--bg-card); padding: 18px; border-radius: 12px; border: 2px solid var(--color-leaf-green);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-              <h3 style="margin:0; font-size:1.15rem; font-family:var(--font-family-title);">
-                📌【${sub.title} - ${ch.name} - ${hw.title}】學生作業繳交追蹤表
-              </h3>
-              <div style="display:flex; gap:8px;">
-                <button class="btn btn-sm btn-accent" onclick="ProgressModule.copyMissingList('${subId}', '${cId}', '${hwId}')">
-                  📋 複製未繳名單
-                </button>
-                <button class="btn btn-sm btn-outline" onclick="ProgressModule.activeHwContext = null; ProgressModule.render();">
-                  &times; 關閉面板
-                </button>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover" style="width:100%; border-collapse:collapse;">
-                <thead>
-                  <tr style="background:var(--bg-secondary); text-align:left;">
-                    <th style="padding:8px 12px;">座號</th>
-                    <th style="padding:8px 12px;">姓名</th>
-                    <th style="padding:8px 12px;">繳交狀態 (點擊切換)</th>
-                    <th style="padding:8px 12px;">學生備註</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${students.length === 0 ? `
-                    <tr><td colspan="4" class="text-center text-muted" style="padding:15px;">目前班級尚無學生資料！</td></tr>
-                  ` : students.map(st => {
-                    const statusKey = hw.records[st.id] || 'missing';
-                    const statusLabel = this.STATUS_LABELS[statusKey] || '未繳 ❌';
-                    let btnClass = 'btn-outline-danger';
-                    if (statusKey === 'submitted') btnClass = 'btn-success';
-                    if (statusKey === 'correcting') btnClass = 'btn-warning';
-                    if (statusKey === 'late') btnClass = 'btn-info';
-
-                    return `
-                      <tr style="border-bottom:1px solid var(--border-color);">
-                        <td style="padding:8px 12px;">#${st.number}</td>
-                        <td style="padding:8px 12px;"><strong>${st.name}</strong></td>
-                        <td style="padding:8px 12px;">
-                          <button class="btn btn-sm ${btnClass}" style="padding:4px 12px; font-weight:bold;" onclick="ProgressModule.toggleStudentHwStatus('${subId}', '${cId}', '${hwId}', '${st.id}')">
-                            ${statusLabel}
-                          </button>
-                        </td>
-                        <td style="padding:8px 12px; color:var(--text-muted);">${st.note || '-'}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      }
-    }
 
     grid.innerHTML = html;
   }

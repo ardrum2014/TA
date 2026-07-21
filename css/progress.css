@@ -1,16 +1,16 @@
-/* 課程進度樣式 */
+/* 課程進度樣式 (優化版面間距與簡潔度) */
 .progress-grid {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
 }
 
 .progress-card {
   background-color: var(--bg-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  padding: 20px;
+  padding: 16px 20px;
   box-shadow: var(--shadow-sm);
   width: 100%;
 }
@@ -20,27 +20,29 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
   border-bottom: 1px dashed var(--border-color);
 }
 
 .card-header-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
 .subject-title {
+  font-size: 1.15rem;
+  font-weight: bold;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
   margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: color var(--transition-fast);
 }
 
@@ -49,11 +51,11 @@
 }
 
 .progress-bar-container {
-  height: 12px;
+  height: 8px;
   background-color: var(--bg-secondary);
   border-radius: var(--radius-full);
   overflow: hidden;
-  margin: 12px 0;
+  margin: 8px 0 12px 0;
 }
 
 .progress-bar-fill {
@@ -67,9 +69,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--border-color);
-  font-size: 0.95rem;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 0.9rem;
 }
 
 .chapter-label {
@@ -80,7 +85,7 @@
   cursor: pointer;
 }
 
-.chapter-item:last-child { border-bottom: none; }
+.chapter-item:last-child { margin-bottom: 0; }
 
 .chapter-item.completed span {
   text-decoration: line-through;

@@ -84,19 +84,137 @@ const TimetableModule = {
     this.isEditing = !this.isEditing;
     const btn = document.getElementById('toggleTimetableEditBtn');
     if (btn) {
-      btn.innerHTML = this.isEditing ? 
-        '<i class="fa-solid fa-check"></i> 💾 完成編輯' : 
-        '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯學期課表';
-      btn.className = this.isEditing ? 'btn btn-success' : 'btn btn-primary';
+      if (this.isEditing) {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> 💾 完成編輯';
+        btn.className = 'btn btn-success';
+        alert('✏️ 已開啟【編輯學期課表模式】！\n現在點擊課表任何一格，即可修改固定班級、科目與上課教室。\n編輯完成請記得再次點擊右上角「💾 完成編輯」。');
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> ✏️ 編輯學期課表';
+        btn.className = 'btn btn-primary';
+        alert('💾 已儲存學期固定課表！\n平常狀況點擊課表格子，可用於登記本週代課與調課備註（跨週會自動清空重置）。');
+      }
     }
     this.renderGrid();
   },
 
+  // 📸 一鍵將教師週課表匯出為高畫質 PNG 圖片
+  async exportPNG() {
+    const card = document.getElementById('timetableGridContainer');
+    if (!card) {
+      alert('無法取得課表容器！');
+      return;
+    }
+
+    try {
+      // 建立暫時性繪製標題與日期 Header
+      const tempHeader = document.createElement('div');
+      tempHeader.className = 'export-temp-header';
+      tempHeader.style.cssText = 'text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #d97706;';
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+      tempHeader.innerHTML = `
+        <h2 style="margin: 0; color: #78350f; font-family: var(--font-family-title), sans-serif; font-size: 1.4rem;">🏫 南寧高中 教師個人週課表</h2>
+        <div style="font-size: 0.85rem; color: #92400e; margin-top: 4px;">產出日期：${dateStr} | 課表版本：114學年度第二學期</div>
+      `;
+      card.insertBefore(tempHeader, card.firstChild);
+
+      const actionBtns = card.querySelectorAll('.btn-chip, .btn-outline, .btn-sm, .empty-cell-text, .edit-icon-hint');
+      actionBtns.forEach(btn => btn.style.visibility = 'hidden');
+
+      const canvas = await html2canvas(card, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      actionBtns.forEach(btn => btn.style.visibility = 'visible');
+      tempHeader.remove();
+
+      const timestamp = StorageManager.getFormattedTimestamp();
+      const link = document.createElement('a');
+      link.download = `${timestamp}_南寧高中_教師個人週課表.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      const existHeader = card.querySelector('.export-temp-header');
+      if (existHeader) existHeader.remove();
+      alert(`匯出圖片失敗：${err.message || err}`);
+      console.error(err);
+    }
+  },
+
+  // 🖨️ 一鍵將教師週課表渲染為滿版圖檔列印 (100% 保證單頁 A4 不跨頁)
+  async printTimetable() {
+    const card = document.getElementById('timetableGridContainer');
+    if (!card) return;
+
+    if (typeof html2canvas === 'undefined') {
+      return alert('圖片繪製套件未載入，請重新整理網頁！');
+    }
+
+    const actionBtns = card.querySelectorAll('.btn-chip, .btn-outline, .btn-sm, .empty-cell-text, .edit-icon-hint');
+    actionBtns.forEach(btn => btn.style.visibility = 'hidden');
+
+    // 建立暫時性繪製標題與日期 Header
+    const tempHeader = document.createElement('div');
+    tempHeader.className = 'export-temp-header';
+    tempHeader.style.cssText = 'text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #d97706; background: #ffffff;';
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+    tempHeader.innerHTML = `
+      <h2 style="margin: 0; color: #78350f; font-family: var(--font-family-title), sans-serif; font-size: 1.4rem;">🏫 南寧高中 教師個人週課表</h2>
+      <div style="font-size: 0.85rem; color: #92400e; margin-top: 4px;">產出日期：${dateStr} | 課表版本：114學年度第二學期</div>
+    `;
+    card.insertBefore(tempHeader, card.firstChild);
+
+    try {
+      const canvas = await html2canvas(card, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      actionBtns.forEach(btn => btn.style.visibility = 'visible');
+      tempHeader.remove();
+
+      const imgData = canvas.toDataURL('image/png');
+      const printWindow = window.open('', '_blank');
+
+      if (!printWindow) {
+        alert('請允許開啟彈出視窗以進行列印！');
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>🏫 南寧高中 教師個人週課表 列印</title>
+          <style>
+            @page { size: A4 landscape; margin: 0; }
+            html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; background: #ffffff; overflow: hidden; }
+            img { max-width: 96vw; max-height: 94vh; object-fit: contain; display: block; }
+          </style>
+        </head>
+        <body>
+          <img src="${imgData}" onload="setTimeout(function(){ window.print(); window.close(); }, 300);" />
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (err) {
+      actionBtns.forEach(btn => btn.style.visibility = 'visible');
+      const existHeader = card.querySelector('.export-temp-header');
+      if (existHeader) existHeader.remove();
+      alert('列印產生失敗：' + (err.message || err));
+      console.error(err);
+    }
+  },
+
   bindEvents() {
-    document.getElementById('toggleTimetableEditBtn')?.addEventListener('click', () => this.toggleEdit());
-    document.getElementById('setupPeriodTimesBtn')?.addEventListener('click', () => this.openPeriodTimesModal());
-    document.getElementById('exportGoogleCalendarBtn')?.addEventListener('click', () => this.exportToICS());
-    document.getElementById('printTimetableBtn')?.addEventListener('click', () => window.print());
+    // 頂部按鈕已於 index.html 設定 onclick 直通觸發器，無需重覆 addEventListener
   },
 
   // 開啟 📥 讀取/訂閱 Google 日曆網址彈窗
@@ -545,7 +663,7 @@ const TimetableModule = {
     const container = document.getElementById('timetableGridContainer');
     if (!container) return;
 
-    if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0) {
+    if (!this.data || !this.data.periods || !Array.isArray(this.data.periods) || this.data.periods.length === 0 || !this.data.grid || Object.keys(this.data.grid).length < 3) {
       this.data = StorageManager.getDefaultTimetable();
       StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
     }
@@ -553,17 +671,24 @@ const TimetableModule = {
     const periods = this.data.periods || [];
     const grid = this.data.grid || {};
 
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+
     let html = `
+      <div class="print-only-header" style="display: none; text-align: center; margin-bottom: 8px;">
+        <h2 style="margin: 0; font-size: 1.35rem; font-weight: bold; color: #000; font-family: var(--font-family-title), sans-serif;">🏫 南寧高中 教師個人週課表</h2>
+        <div style="font-size: 0.8rem; color: #333; margin-top: 2px;">印製日期：${dateStr} | 114學年度第二學期</div>
+      </div>
       <div class="table-responsive">
-        <table class="table table-bordered timetable-table" style="width:100%; border-collapse:collapse; text-align:center;">
+        <table class="table table-bordered timetable-table" style="width:100%; border-collapse:collapse; text-align:center; border: 2px solid var(--border-color);">
           <thead>
-            <tr style="background: var(--bg-secondary); color: var(--text-main);">
-              <th style="width: 12%; padding: 12px;">節次 / 時間</th>
-              <th style="width: 17.6%; padding: 12px;">星期一</th>
-              <th style="width: 17.6%; padding: 12px;">星期二</th>
-              <th style="width: 17.6%; padding: 12px;">星期三</th>
-              <th style="width: 17.6%; padding: 12px;">星期四</th>
-              <th style="width: 17.6%; padding: 12px;">星期五</th>
+            <tr style="background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--color-latte) 100%); color: var(--text-main);">
+              <th style="width: 12%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;"><i class="fa-solid fa-clock"></i> 節次 / 時間</th>
+              <th style="width: 17.6%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;">🗓️ 星期一</th>
+              <th style="width: 17.6%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;">🗓️ 星期二</th>
+              <th style="width: 17.6%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;">🗓️ 星期三</th>
+              <th style="width: 17.6%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;">🗓️ 星期四</th>
+              <th style="width: 17.6%; padding: 12px; border: 1.5px solid var(--border-color); font-family: var(--font-family-title); font-size: 1.05rem;">🗓️ 星期五</th>
             </tr>
           </thead>
           <tbody>
@@ -572,59 +697,56 @@ const TimetableModule = {
     periods.forEach(p => {
       html += `
         <tr>
-          <td style="background: var(--bg-secondary); vertical-align: middle; padding: 10px 6px;">
-            <div style="font-weight: bold; font-family: var(--font-family-title);">${p.name}</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">${p.startTime} - ${p.endTime}</div>
+          <td style="background: var(--bg-secondary); vertical-align: middle; padding: 10px 6px; border: 1.5px solid var(--border-color);">
+            <div style="font-weight: 700; font-size: 1rem; color: var(--color-leaf-green); font-family: var(--font-family-title);">${p.name}</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">${p.startTime} - ${p.endTime}</div>
           </td>
       `;
 
       for (let day = 1; day <= 5; day++) {
         const cellKey = `${day}_${p.period}`;
         const cell = grid[cellKey] || { className: '', subject: '', location: '', substitute: '', substituteNote: '' };
-        const hasClass = cell.className && cell.className !== '空堂' && cell.className !== '無課';
+        const hasClass = (cell.className && cell.className !== '空堂' && cell.className !== '無課') || (cell.substitute && cell.substitute.trim() !== '');
 
         html += `
           <td class="timetable-cell ${hasClass ? 'has-class' : 'empty-cell'}" 
-              style="position: relative; vertical-align: middle; padding: 10px; cursor: pointer; border: 1px solid var(--border-color); background: ${hasClass ? 'var(--bg-card)' : 'transparent'};"
+              style="position: relative; vertical-align: middle; padding: 10px 8px; cursor: pointer; border: 1.5px solid var(--border-color); background: ${hasClass ? 'var(--bg-card)' : 'transparent'}; transition: background var(--transition-fast);"
               onclick="TimetableModule.handleCellClick(${day}, ${p.period})">
         `;
 
         if (hasClass) {
           html += `
-            <div style="font-size: 1.05rem; font-weight: bold; color: var(--color-terracotta);">${cell.className}</div>
-            <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-main); margin-top: 2px;">${cell.subject || '-'}</div>
-            ${cell.location ? `<div style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> ${cell.location}</div>` : ''}
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--color-terracotta);">${cell.className || '代課/無班級'}</div>
+            <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">${cell.subject || '-'}</div>
+            ${cell.location ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;"><i class="fa-solid fa-location-dot" style="color: var(--color-amber);"></i> ${cell.location}</div>` : ''}
           `;
 
           // 若有代課備註
           if (cell.substitute) {
             html += `
-              <div style="margin-top: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(217, 119, 6, 0.15); color: #d97706; font-size: 0.75rem; font-weight: bold;">
-                <i class="fa-solid fa-user-group"></i> ${cell.substitute}
+              <div style="margin-top: 5px; padding: 2px 8px; border-radius: 12px; background: rgba(217, 119, 6, 0.15); color: #b45309; font-size: 0.75rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fa-solid fa-user-check"></i> ${cell.substitute}
               </div>
             `;
           }
 
-          // 快捷按鈕
-          if (!this.isEditing) {
+          // 快捷切換班級按鈕
+          if (!this.isEditing && cell.className && cell.className !== '空堂') {
             html += `
               <div style="margin-top: 6px; display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
-                <button type="button" class="btn btn-sm btn-chip" style="font-size: 0.75rem; padding: 2px 6px;" title="點擊切換為當前班級" onclick="event.stopPropagation(); TimetableModule.switchToClass('${cell.className}')">
+                <button type="button" class="btn btn-sm btn-chip" style="font-size: 0.75rem; padding: 2px 8px;" title="點擊切換為當前班級" onclick="event.stopPropagation(); TimetableModule.switchToClass('${cell.className}')">
                   🚀 切換此班
-                </button>
-                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.75rem; padding: 2px 6px;" title="新增此單節課程至 Google 日曆" onclick="event.stopPropagation(); TimetableModule.openGoogleQuickAdd(${day}, ${p.period})">
-                  📆 加至日曆
                 </button>
               </div>
             `;
           }
         } else {
-          html += `<div style="color: var(--text-muted); font-size: 0.85rem;">${this.isEditing ? '（+ 點擊編輯）' : '—'}</div>`;
+          html += `<div class="empty-cell-text" style="color: var(--text-muted); font-size: 0.88rem; opacity: 0.5;">—</div>`;
         }
 
         if (this.isEditing) {
           html += `
-            <div style="position: absolute; top: 4px; right: 4px; color: var(--color-leaf-green); font-size: 0.8rem;">
+            <div class="edit-icon-hint" style="position: absolute; top: 4px; right: 4px; color: var(--color-leaf-green); font-size: 0.8rem;">
               <i class="fa-solid fa-pen"></i>
             </div>
           `;
@@ -663,11 +785,13 @@ const TimetableModule = {
     const periodObj = (this.data.periods || []).find(p => p.period === period) || { name: `第 ${period} 節` };
     const dayName = this.DAY_NAMES[day] || `週${day}`;
 
-    if (this.isEditing) {
-      // 點擊【✏️ 編輯學期課表】模式下：修改固定課表 (班級、科目、地點)
+    const hasClass = cell.className && cell.className !== '空堂' && cell.className !== '無課';
+
+    // 若該節課尚未設定固定班級，或是開啟了編輯模式，一律點擊直接開啟【編輯學期固定課表】彈窗
+    if (this.isEditing || !hasClass) {
       this.openScheduleEditModal(day, period, cell, periodObj, dayName);
     } else {
-      // 平常狀況點選：開啟【本週代課 / 請假 / 調課登記】彈窗
+      // 否則開啟【登錄本週代課與調課紀錄】彈窗
       this.openSubstituteModal(day, period, cell, periodObj, dayName);
     }
   },
