@@ -587,20 +587,21 @@
               <div class="guide-icon"><i class="fa-solid fa-dharmachakra"></i></div>
               <h4>2. 抹茶幸運輪盤抽籤</h4>
               <ul>
-                <li><b>點擊輪盤抽籤</b>：滑鼠直接點擊輪盤任意處或中央「抽籤」鈕即可旋轉。</li>
-                <li><b>畫面中質感彈窗</b>：抽中時於畫面中央高亮彈窗，<b>點擊任意處即可隨手關閉</b>。</li>
-                <li><b>一鍵帶入班級名冊</b>：連動名條管理，並自動記錄抽中歷史與剔除機制。</li>
+                <li><b>學生與小組雙重抽籤</b>：除了抽單一學生，更支援「抽分組」模式。</li>
+                <li><b>自適應分組連動</b>：抽分組時會自動讀取當前班級的實際小組組數與自訂組名，智慧分割輪盤扇區。</li>
+                <li><b>一鍵帶入與排除歷史</b>：連動班級名條，並自動記錄已中籤歷史、支援排除機制。</li>
               </ul>
             </div>
 
             <!-- 3. 智慧座位表編輯器 -->
             <div class="card guide-card">
               <div class="guide-icon"><i class="fa-solid fa-border-all"></i></div>
-              <h4>3. 智慧座位表編輯器</h4>
+              <h4>3. 智慧座位表與條件排座</h4>
               <ul>
-                <li><b>滑鼠拖放名牌對換</b>：直接拖曳學生名牌至目標位置，<b>自動對換兩位學生座位</b>！</li>
-                <li><b>點擊對換與網格調整</b>：支援觸控點擊對換、自訂 5x6 網格與講台前後切換。</li>
-                <li><b>友善列印</b>：提供一鍵列印視圖。</li>
+                <li><b>滑鼠/觸控拖放對換</b>：直接拖曳學生名牌或點擊對換座位，並支援自訂網格與講台前後切換。</li>
+                <li><b>⚙️ 條件排座設定</b>：支援設定「兩人禁止相鄰(8向)」、「兩人必須相鄰(小老師)」、「指定第一排或最後一排」，並由 Heuristic CSP 限制滿足解算器自動計算出最佳排座分佈。</li>
+                <li><b>講台靠攏與大風吹</b>：空位自動推至最遠的後排；提供「整排左移/右移」一鍵大風吹循環平移。</li>
+                <li><b>卡片豐富資訊</b>：座位卡片上直觀呈現「座號」、「姓名」、「學號」與「幹部」，空位顯示位置號碼。</li>
               </ul>
             </div>
 
@@ -609,9 +610,9 @@
               <div class="guide-icon"><i class="fa-solid fa-people-group"></i></div>
               <h4>4. 隨機與彈性分組工具</h4>
               <ul>
-                <li><b>自動分組與跨組拖放</b>：可按組數/人數隨機分組，支援滑鼠拖放或點擊跨組移動學生。</li>
-                <li><b>客製化組別管理</b>：支援「手動新增小組」、點擊修改組名（如蘋果隊）、指定/切換組長 👑。</li>
-                <li><b>同步至加分榜</b>：一鍵連動至分組加分競賽。</li>
+                <li><b>編輯自動解鎖 (Auto-Unlock)</b>：當點擊自動分組、設定組長或新增小組時，系統會自動解鎖切換至編輯模式。</li>
+                <li><b>隨機分組與拖曳調整</b>：支援依組數/人數一鍵隨機分組，分組與組員順序在切換班級後自動儲存不丟失。</li>
+                <li><b>組別管理與組長設定</b>：支援「手動新增小組」、點擊直接修改組名，並可指定/切換組長 👑。</li>
               </ul>
             </div>
 
@@ -620,9 +621,10 @@
               <div class="guide-icon"><i class="fa-solid fa-star"></i></div>
               <h4>5. 課堂加分與小組競賽榜</h4>
               <ul>
-                <li><b>個人與分組加分</b>：卡片式加扣分，伴隨音效與獎勵動畫。</li>
-                <li><b>一鍵匯出 Excel (雙 Sheet)</b>：產出包含個人與分組榜的 `.xlsx` 試算表。</li>
-                <li><b>複製排行榜文字 & 雲端傳送</b>：一鍵複製格式文字或開啟 Google 雲端硬碟拖放備份。</li>
+                <li><b>個人/小組跨班隔離</b>：卡片式加扣分，伴隨音效與慶祝動畫。小組競賽榜組數與點數依班級各自獨立。</li>
+                <li><b>整合匯出 Excel 成績單</b>：匯出學生名條時，可勾選一併整合匯出個人得分與小組得分。</li>
+                <li><b>複製排行榜與雲端備份</b>：一鍵複製格式文字或開啟 Google Drive 進行拖放備份。</li>
+                <li><b>雙階安全歸零 (v6.0 新增)</b>：歸零點數時支援「僅重設當前班級」與「清空所有班級」兩階段確認，防止誤刪他班資料。</li>
               </ul>
             </div>
 
@@ -631,8 +633,9 @@
               <div class="guide-icon"><i class="fa-solid fa-book-bookmark"></i></div>
               <h4>6. 作業與習作追蹤</h4>
               <ul>
-                <li><b>四態標籤切換</b>：未繳 ❌ ➔ 已繳 🟢 ➔ 待訂正 🟡 ➔ 補繳 🔵。</li>
+                <li><b>四態標籤與精準統計</b>：未繳 ❌ ➔ 已繳 🟢 ➔ 待訂正 🟡 ➔ 補繳 🔵，已繳人數統計精確排除補繳。</li>
                 <li><b>一鍵複製未繳名單</b>：產出整理好的未繳學生名冊，方便貼至聯絡簿或班級群組。</li>
+                <li><b>檢核彈窗資訊擴展</b>：檢核彈窗中的學生資訊整合顯示學號、幹部及備註。</li>
               </ul>
             </div>
 
@@ -650,8 +653,9 @@
               <div class="guide-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
               <h4>8. 名條管理與全站雲端備份/還原</h4>
               <ul>
-                <li><b>Excel 名條匯入/下載範本</b>：離線本機永久存檔，資料關閉瀏覽器不遺失。</li>
-                <li><b>全站備份與還原 (`.json`)</b>：點擊側邊欄「備份全站」下載備份檔；更換電腦時點擊「📥 匯入還原」即可一鍵還原全站！</li>
+                <li><b>手動編輯與排序座號</b>：在網頁上可直接修改學生姓名、學號、幹部、備註四欄，支援拖放或按鈕重新排序，存檔後自動重編座號並全站連動。</li>
+                <li><b>Excel 名條多班級匯入</b>：支援解析 CSV, XLS, XLSX，相容南寧高中公假系統格式。</li>
+                <li><b>全站備份與還原 (`.json`)</b>：一鍵備份全站資料至本機，更換電腦時一鍵匯入即可全數還原！</li>
               </ul>
             </div>
           </div>
@@ -703,17 +707,17 @@
   </div>
 
   <!-- JavaScript 主控邏輯模組 -->
-  <script src="js/storage.js?v=5.17"></script>
-  <script src="js/audio.js?v=5.17"></script>
-  <script src="js/roster.js?v=5.17"></script>
-  <script src="js/schedule.js?v=5.17"></script>
-  <script src="js/timetable.js?v=5.17"></script>
-  <script src="js/wheel.js?v=5.17"></script>
-  <script src="js/seating.js?v=5.17"></script>
-  <script src="js/groups.js?v=5.17"></script>
-  <script src="js/points.js?v=5.17"></script>
-  <script src="js/homework.js?v=5.17"></script>
-  <script src="js/progress.js?v=5.17"></script>
-  <script src="js/app.js?v=5.17"></script>
+  <script src="js/storage.js?v=5.20"></script>
+  <script src="js/audio.js?v=5.20"></script>
+  <script src="js/roster.js?v=5.20"></script>
+  <script src="js/schedule.js?v=5.20"></script>
+  <script src="js/timetable.js?v=5.20"></script>
+  <script src="js/wheel.js?v=5.20"></script>
+  <script src="js/seating.js?v=5.20"></script>
+  <script src="js/groups.js?v=5.20"></script>
+  <script src="js/points.js?v=5.20"></script>
+  <script src="js/homework.js?v=5.20"></script>
+  <script src="js/progress.js?v=5.20"></script>
+  <script src="js/app.js?v=5.20"></script>
 </body>
 </html>

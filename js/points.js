@@ -72,12 +72,42 @@ const PointsModule = {
     });
 
     document.getElementById('resetPointsBtn')?.addEventListener('click', () => {
-      if (confirm('確定要將所有個人與分組點數歸零嗎？')) {
-        this.individualScores = {};
-        this.teamGroups.forEach(g => g.score = 0);
+      const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+      
+      if (confirm(`❓ 您是否要將【當前班級（${activeClass}）】的個人與分組點數歸零？\n\n（注意：這只會重設目前選擇的班級，其他班級不受影響）`)) {
+        // 1. 僅歸零當前班級
+        const activeStudents = StorageManager.getActiveClassStudents();
+        activeStudents.forEach(st => {
+          delete this.individualScores[st.id]; // 從個人得分中刪除當前班級學生的分數
+        });
+        this.teamGroups.forEach(g => g.score = 0); // 歸零當前班級的小組分數
+        
         StorageManager.set(StorageManager.KEYS.POINTS, this.individualScores);
         this.saveTeamScores();
         this.render();
+        alert(`已成功歸零【${activeClass}】的個人與分組分數！`);
+      } else {
+        // 如果按取消，詢問是否要歸零「所有班級」
+        if (confirm(`❓ 那麼，您是否要將【所有班級】的個人與分組點數「全部清空歸零」？\n\n（警告：這將會清除系統中所有班級的歷史成績，且無法還原！）`)) {
+          // 2. 歸零全數班級數據
+          this.individualScores = {}; // 清空所有個人分數
+          
+          // 歸零所有班級的小組分數
+          this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+          if (typeof this.groupsMap === 'object' && this.groupsMap !== null) {
+            for (let cls in this.groupsMap) {
+              if (Array.isArray(this.groupsMap[cls])) {
+                this.groupsMap[cls].forEach(g => g.score = 0);
+              }
+            }
+          }
+          this.teamGroups.forEach(g => g.score = 0); // 歸零當前班級快取
+          
+          StorageManager.set(StorageManager.KEYS.POINTS, this.individualScores);
+          StorageManager.set(StorageManager.KEYS.GROUPS, this.groupsMap);
+          this.render();
+          alert('已成功歸零【全數班級】的所有個人與分組分數！');
+        }
       }
     });
   },
