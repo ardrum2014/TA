@@ -12,6 +12,9 @@ const ScheduleModule = {
 
   init() {
     this.schedules = StorageManager.get(StorageManager.KEYS.SCHEDULE, []);
+    if (!Array.isArray(this.schedules)) {
+      this.schedules = [];
+    }
     this.renderTable();
     this.bindEvents();
     this.startClock();

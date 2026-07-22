@@ -12,19 +12,52 @@ const GroupsModule = {
 
   init() {
     this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    if (Array.isArray(this.groupsMap) || typeof this.groupsMap !== 'object' || this.groupsMap === null) {
+      this.groupsMap = {};
+    }
     this.unassignedMap = StorageManager.get('cozy_teacher_unassigned_groups', {});
+    if (Array.isArray(this.unassignedMap) || typeof this.unassignedMap !== 'object' || this.unassignedMap === null) {
+      this.unassignedMap = {};
+    }
     this.bindEvents();
     this.loadActiveGroups();
 
-    window.addEventListener('rosterUpdated', () => {
-      this.loadActiveGroups();
+    window.addEventListener('rosterUpdated', (e) => {
+      // 只有在真正「切換班級」時才強制重置編輯狀態為唯讀
+      const classSwitched = e.detail && e.detail.className;
+      this.loadActiveGroups(classSwitched);
     });
   },
 
-  loadActiveGroups() {
+  loadActiveGroups(resetEdit = false) {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    if (Array.isArray(this.groupsMap) || typeof this.groupsMap !== 'object' || this.groupsMap === null) {
+      this.groupsMap = {};
+    }
+    this.unassignedMap = StorageManager.get('cozy_teacher_unassigned_groups', {});
+    if (Array.isArray(this.unassignedMap) || typeof this.unassignedMap !== 'object' || this.unassignedMap === null) {
+      this.unassignedMap = {};
+    }
+    
     this.groups = this.groupsMap[activeClass] || [];
     this.unassigned = this.unassignedMap[activeClass] || [];
+    
+    if (resetEdit) {
+      // 只有在切換班級時才重置編輯狀態為鎖定唯讀，防止跨班誤觸或狀態錯亂
+      this.isEditing = false;
+      const toggleBtn = document.getElementById('toggleGroupEditBtn');
+      const saveBtn = document.getElementById('saveGroupEditBtn');
+      const bannerText = document.getElementById('groupModeText');
+      const bannerIcon = document.getElementById('groupModeIcon');
+
+      if (toggleBtn) toggleBtn.innerHTML = '<i class="fa-solid fa-pen"></i> ✏️ 編輯模式';
+      if (saveBtn) saveBtn.classList.add('hidden');
+      if (bannerText) bannerText.textContent = '目前為「🔒 唯讀預覽模式」（防止課堂誤觸移動組員，點擊右上角「✏️ 編輯模式」進行調整/隨機分組）';
+      if (bannerIcon) bannerIcon.className = 'fa-solid fa-lock';
+      this.selectedMember = null;
+    }
+
     this.sanitizeGroupLeaders();
     this.renderGroups();
   },
@@ -32,10 +65,23 @@ const GroupsModule = {
   saveActiveGroups() {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
     this.sanitizeGroupLeaders();
+    this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    if (Array.isArray(this.groupsMap) || typeof this.groupsMap !== 'object' || this.groupsMap === null) {
+      this.groupsMap = {};
+    }
     this.groupsMap[activeClass] = this.groups;
+    
+    this.unassignedMap = StorageManager.get('cozy_teacher_unassigned_groups', {});
+    if (Array.isArray(this.unassignedMap) || typeof this.unassignedMap !== 'object' || this.unassignedMap === null) {
+      this.unassignedMap = {};
+    }
     this.unassignedMap[activeClass] = this.unassigned;
+    
     StorageManager.set(StorageManager.KEYS.GROUPS, this.groupsMap);
     StorageManager.set('cozy_teacher_unassigned_groups', this.unassignedMap);
+    
+    // 廣播給加分榜、輪盤等模組即時刷新小組數據！
+    window.dispatchEvent(new Event('rosterUpdated'));
     this.renderGroups();
   },
 
@@ -91,7 +137,7 @@ const GroupsModule = {
     // 自動生成隨機分組
     document.getElementById('generateGroupsBtn')?.addEventListener('click', () => {
       if (!this.isEditing) {
-        return alert('目前為 🔒 唯讀模式！請先點擊右上角「✏️ 編輯模式」即可進行自動隨機分組。');
+        this.toggleEditMode();
       }
       this.generateGroups();
     });
@@ -99,7 +145,7 @@ const GroupsModule = {
     // 一鍵預設各組第一位為組長
     document.getElementById('resetLeadersBtn')?.addEventListener('click', () => {
       if (!this.isEditing) {
-        return alert('目前為 🔒 唯讀模式！請先點擊右上角「✏️ 編輯模式」解鎖。');
+        this.toggleEditMode();
       }
       this.groups.forEach(g => {
         g.members.forEach((m, idx) => {
@@ -113,7 +159,7 @@ const GroupsModule = {
     // 手動新增小組
     document.getElementById('addGroupManualBtn')?.addEventListener('click', () => {
       if (!this.isEditing) {
-        return alert('目前為 🔒 唯讀模式！請先點擊右上角「✏️ 編輯模式」即可新增小組。');
+        this.toggleEditMode();
       }
       this.addNewGroup();
     });

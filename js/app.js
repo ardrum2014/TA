@@ -90,10 +90,10 @@ function initCloudBackup() {
       classes: StorageManager.get(StorageManager.KEYS.CLASSES, {}),
       activeClass: StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, ''),
       schedule: StorageManager.get(StorageManager.KEYS.SCHEDULE, []),
-      groups: StorageManager.get(StorageManager.KEYS.GROUPS, []),
+      groups: StorageManager.get(StorageManager.KEYS.GROUPS, {}),
       points: StorageManager.get(StorageManager.KEYS.POINTS, {}),
-      homework: StorageManager.get(StorageManager.KEYS.HOMEWORK, []),
-      progress: StorageManager.get(StorageManager.KEYS.PROGRESS, []),
+      homework: StorageManager.get(StorageManager.KEYS.HOMEWORK, {}),
+      progress: StorageManager.get(StorageManager.KEYS.PROGRESS, {}),
       timetable: StorageManager.get(StorageManager.KEYS.TIMETABLE, {})
     };
 

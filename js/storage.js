@@ -104,9 +104,11 @@ const StorageManager = {
     };
   },
 
-  // 取得當前班級學生名單
   getActiveClassStudents() {
-    const classes = this.get(this.KEYS.CLASSES, this.getDefaultClasses());
+    let classes = this.get(this.KEYS.CLASSES, this.getDefaultClasses());
+    if (Array.isArray(classes) || typeof classes !== 'object' || classes === null) {
+      classes = {};
+    }
     const activeClassName = this.get(this.KEYS.ACTIVE_CLASS, '501班');
     return classes[activeClassName] || [];
   },

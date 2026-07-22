@@ -1,17 +1,44 @@
 /**
- * 個人與分組競賽加分榜模組
+ * 個人與分組競賽加分榜模組 (支援班級切換、分組競賽與個人加分同步連動)
  */
 const PointsModule = {
   individualScores: {}, // studentId -> score
-  teamGroups: [], // list of groups with teamScore
+  groupsMap: {}, // className -> list of groups
+  teamGroups: [], // list of groups for the active class
 
   init() {
-    this.individualScores = StorageManager.get(StorageManager.KEYS.POINTS, {});
-    this.teamGroups = StorageManager.get(StorageManager.KEYS.GROUPS, []);
+    this.loadActiveGroupsAndScores();
     this.bindEvents();
     this.render();
 
-    window.addEventListener('rosterUpdated', () => this.render());
+    window.addEventListener('rosterUpdated', () => {
+      this.loadActiveGroupsAndScores();
+      this.render();
+    });
+  },
+
+  loadActiveGroupsAndScores() {
+    this.individualScores = StorageManager.get(StorageManager.KEYS.POINTS, {});
+    if (Array.isArray(this.individualScores) || typeof this.individualScores !== 'object' || this.individualScores === null) {
+      this.individualScores = {};
+    }
+    this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    if (Array.isArray(this.groupsMap) || typeof this.groupsMap !== 'object' || this.groupsMap === null) {
+      this.groupsMap = {};
+    }
+    
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    this.teamGroups = this.groupsMap[activeClass] || [];
+  },
+
+  saveTeamScores() {
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    this.groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    if (Array.isArray(this.groupsMap) || typeof this.groupsMap !== 'object' || this.groupsMap === null) {
+      this.groupsMap = {};
+    }
+    this.groupsMap[activeClass] = this.teamGroups;
+    StorageManager.set(StorageManager.KEYS.GROUPS, this.groupsMap);
   },
 
   bindEvents() {
@@ -49,7 +76,7 @@ const PointsModule = {
         this.individualScores = {};
         this.teamGroups.forEach(g => g.score = 0);
         StorageManager.set(StorageManager.KEYS.POINTS, this.individualScores);
-        StorageManager.set(StorageManager.KEYS.GROUPS, this.teamGroups);
+        this.saveTeamScores();
         this.render();
       }
     });
@@ -90,7 +117,8 @@ const PointsModule = {
         '所屬組別': teamInfo.teamName,
         '個人得分': personalScore,
         '小組得分': teamScore,
-        '身份/備註': (teamInfo.isLeader ? '⭐ 組長 ' : '') + (st.note || '')
+        '總累計得分': personalScore + teamScore,
+        '身份/備註': (teamInfo.isLeader ? '⭐組長 ' : '') + (st.remarks || st.note || '')
       };
     });
 
@@ -132,12 +160,12 @@ const PointsModule = {
     }
 
     let text = `🏆【${activeClass} 課堂加分榜總表】\n\n`;
-    text += `座號\t姓名\t組別\t個人得分\t小組得分\n`;
+    text += `座號\t姓名\t組別\t個人得分\t小組得分\t總得分\n`;
     students.forEach(st => {
       const pScore = this.individualScores[st.id] || 0;
       const tInfo = studentTeamMap[st.id] || { teamName: '-', teamScore: 0 };
       const tScore = tInfo.teamScore;
-      text += `${st.number}\t${st.name}\t${tInfo.teamName}\t${pScore}分\t${tScore}分\n`;
+      text += `${st.number}\t${st.name}\t${tInfo.teamName}\t${pScore}分\t${tScore}分\t${pScore + tScore}分\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
@@ -149,7 +177,7 @@ const PointsModule = {
 
   setTeamGroups(groups) {
     this.teamGroups = groups.map(g => ({ ...g, score: g.score || 0 }));
-    StorageManager.set(StorageManager.KEYS.GROUPS, this.teamGroups);
+    this.saveTeamScores();
     this.render();
   },
 
@@ -163,7 +191,7 @@ const PointsModule = {
   changeTeamPoint(idx, delta) {
     if (this.teamGroups[idx]) {
       this.teamGroups[idx].score = (this.teamGroups[idx].score || 0) + delta;
-      StorageManager.set(StorageManager.KEYS.GROUPS, this.teamGroups);
+      this.saveTeamScores();
       AudioEngine.playPointSound();
       this.render();
     }
@@ -180,7 +208,7 @@ const PointsModule = {
 
     const students = StorageManager.getActiveClassStudents();
     if (students.length === 0) {
-      container.innerHTML = `<div class="text-center text-muted">請先在名條管理中建立學生名冊。</div>`;
+      container.innerHTML = `<div class="text-center text-muted" style="grid-column: 1 / -1; padding: 20px;">請先在名條管理中建立學生名冊。</div>`;
       return;
     }
 
@@ -204,7 +232,7 @@ const PointsModule = {
     if (!container) return;
 
     if (this.teamGroups.length === 0) {
-      container.innerHTML = `<div class="text-center text-muted">尚未建立分組，請至「隨機分組」點擊「同步至分組加分榜」。</div>`;
+      container.innerHTML = `<div class="text-center text-muted" style="grid-column: 1 / -1; padding: 20px;">尚未建立分組，請至「隨機分組」點擊「同步至分組加分榜」。</div>`;
       return;
     }
 

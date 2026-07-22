@@ -139,13 +139,15 @@ const WheelModule = {
   },
 
   syncGroups() {
-    const groups = StorageManager.get(StorageManager.KEYS.GROUPS, []);
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    const groupsMap = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    const groups = groupsMap[activeClass] || [];
     let groupNames = [];
 
     if (groups && groups.length > 0) {
       groupNames = groups.map(g => g.name);
     } else {
-      groupNames = ['第 1 組', '第 2 組', '第 3 組', '第 4 組'];
+      groupNames = ['第 1 組', '第 2 組', '第 3 組', '第 4 組', '第 5 組', '第 6 組'];
     }
 
     const textarea = document.getElementById('wheelCandidatesText');

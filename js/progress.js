@@ -78,6 +78,10 @@ const ProgressModule = {
 
   getActiveSubjects() {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    this.progressMap = StorageManager.get(StorageManager.KEYS.PROGRESS, this.getDefaultSubjectsMap());
+    if (!this.progressMap || typeof this.progressMap !== 'object' || Array.isArray(this.progressMap)) {
+      this.progressMap = this.getDefaultSubjectsMap();
+    }
     if (!this.progressMap[activeClass] || !Array.isArray(this.progressMap[activeClass]) || this.progressMap[activeClass].length === 0) {
       this.progressMap[activeClass] = [
         {
@@ -117,6 +121,10 @@ const ProgressModule = {
 
   saveActiveSubjects(subjects) {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    this.progressMap = StorageManager.get(StorageManager.KEYS.PROGRESS, this.getDefaultSubjectsMap());
+    if (!this.progressMap || typeof this.progressMap !== 'object' || Array.isArray(this.progressMap)) {
+      this.progressMap = this.getDefaultSubjectsMap();
+    }
     this.progressMap[activeClass] = subjects;
     StorageManager.set(StorageManager.KEYS.PROGRESS, this.progressMap);
     this.render();
@@ -566,7 +574,7 @@ const ProgressModule = {
 
     const submittedCount = students.filter(st => {
       const s = hw.records[st.id] || 'missing';
-      return s === 'submitted' || s === 'late';
+      return s === 'submitted';
     }).length;
 
     const totalStudents = students.length;
@@ -603,10 +611,10 @@ const ProgressModule = {
           <table class="table table-hover" style="width:100%; border-collapse:collapse; text-align:center;">
             <thead>
               <tr style="background: var(--bg-secondary); position: sticky; top: 0; z-index: 1;">
-                <th style="width: 15%; padding: 8px;">座號</th>
-                <th style="width: 25%; padding: 8px;">學生姓名</th>
-                <th style="width: 40%; padding: 8px;">繳交狀態 (點擊切換)</th>
-                <th style="width: 20%; padding: 8px;">學生備註</th>
+                <th style="width: 10%; padding: 8px;">座號</th>
+                <th style="width: 20%; padding: 8px;">學生姓名</th>
+                <th style="width: 35%; padding: 8px;">繳交狀態 (點擊切換)</th>
+                <th style="width: 35%; padding: 8px;">學生資訊</th>
               </tr>
             </thead>
             <tbody>
@@ -620,6 +628,12 @@ const ProgressModule = {
                 if (statusKey === 'correcting') btnClass = 'btn-warning';
                 if (statusKey === 'late') btnClass = 'btn-info';
 
+                const details = [];
+                if (st.note) details.push(`學號:${st.note}`);
+                if (st.cadre) details.push(`幹部:${st.cadre}`);
+                if (st.remarks) details.push(`備註:${st.remarks}`);
+                const detailStr = details.length > 0 ? details.join(' | ') : '-';
+
                 return `
                   <tr style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 8px; vertical-align: middle; font-weight: bold;">#${st.number}</td>
@@ -629,7 +643,7 @@ const ProgressModule = {
                         ${statusLabel}
                       </button>
                     </td>
-                    <td style="padding: 8px; vertical-align: middle; font-size: 0.85rem; color: var(--text-muted);">${st.note || st.gender || '-'}</td>
+                    <td style="padding: 8px; vertical-align: middle; font-size: 0.85rem; color: var(--text-muted); text-align: left;">${detailStr}</td>
                   </tr>
                 `;
               }).join('')}
@@ -810,7 +824,7 @@ const ProgressModule = {
                     ` : hwList.map(hw => {
                       const submittedCount = students.filter(st => {
                         const s = hw.records[st.id] || 'missing';
-                        return s === 'submitted' || s === 'late';
+                        return s === 'submitted';
                       }).length;
 
                       return `

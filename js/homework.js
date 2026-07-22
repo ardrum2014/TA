@@ -21,6 +21,9 @@ const HomeworkModule = {
 
   init() {
     this.homeworkMap = StorageManager.get(StorageManager.KEYS.HOMEWORK, {});
+    if (Array.isArray(this.homeworkMap) || typeof this.homeworkMap !== 'object' || this.homeworkMap === null) {
+      this.homeworkMap = {};
+    }
     this.bindEvents();
     this.loadActiveHomeworks();
 
@@ -29,6 +32,10 @@ const HomeworkModule = {
 
   loadActiveHomeworks() {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    this.homeworkMap = StorageManager.get(StorageManager.KEYS.HOMEWORK, {});
+    if (Array.isArray(this.homeworkMap) || typeof this.homeworkMap !== 'object' || this.homeworkMap === null) {
+      this.homeworkMap = {};
+    }
     this.homeworks = this.homeworkMap[activeClass] || [];
     this.activeHwId = this.homeworks.length > 0 ? this.homeworks[0].id : null;
     this.renderHomeworkSelect();
@@ -37,6 +44,10 @@ const HomeworkModule = {
 
   saveActiveHomeworks() {
     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '401班');
+    this.homeworkMap = StorageManager.get(StorageManager.KEYS.HOMEWORK, {});
+    if (Array.isArray(this.homeworkMap) || typeof this.homeworkMap !== 'object' || this.homeworkMap === null) {
+      this.homeworkMap = {};
+    }
     this.homeworkMap[activeClass] = this.homeworks;
     StorageManager.set(StorageManager.KEYS.HOMEWORK, this.homeworkMap);
     this.renderHomeworkSelect();
