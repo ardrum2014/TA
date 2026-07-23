@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
   SeatingModule.init();
   GroupsModule.init();
   PointsModule.init();
-  HomeworkModule.init();
   ProgressModule.init();
   if (typeof TimetableModule !== 'undefined') TimetableModule.init();
 });
