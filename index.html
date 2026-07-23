@@ -441,46 +441,6 @@
           </div>
         </section>
 
-        <!-- 7. 作業追蹤 -->
-        <section id="homework" class="tab-panel">
-          <div class="panel-header">
-            <h2><i class="fa-solid fa-book-bookmark"></i> 作業與習作繳交追蹤</h2>
-            <div class="panel-actions">
-              <button id="addHomeworkBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> 新增作業項目</button>
-              <button id="exportHomeworkExcelBtn" class="btn btn-secondary" title="匯出當前作業繳交狀態 Excel 表單"><i class="fa-solid fa-file-excel"></i> 匯出作業 Excel</button>
-              <button id="exportMissingHwBtn" class="btn btn-accent"><i class="fa-solid fa-copy"></i> 複製未繳學生名單</button>
-            </div>
-          </div>
-
-          <div class="card homework-select-card">
-            <div class="form-inline">
-              <label for="activeHomeworkSelect">目前選擇的作業：</label>
-              <select id="activeHomeworkSelect" class="form-select flex-1">
-                <option value="">(請選擇或建立作業)</option>
-              </select>
-              <button id="deleteHomeworkBtn" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash"></i> 刪除作業</button>
-            </div>
-          </div>
-
-          <div class="card homework-matrix-card margin-top">
-            <div class="table-responsive">
-              <table class="table table-hover" id="homeworkTable">
-                <thead>
-                  <tr>
-                    <th>座號</th>
-                    <th>姓名</th>
-                    <th>繳交狀態 (點擊切換)</th>
-                    <th>備註與說明</th>
-                  </tr>
-                </thead>
-                <tbody id="homeworkTableBody">
-                  <tr><td colspan="4" class="text-center text-muted">請先選擇或建立作業項目。</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         <!-- 7. 課程與作業追蹤整合頁面 -->
         <section id="progress" class="tab-panel">
           <div class="panel-header">
@@ -975,18 +935,17 @@
   </div>
 
   <!-- JavaScript 主控邏輯模組 -->
-  <script src="js/storage.js?v=5.90"></script>
-  <script src="js/audio.js?v=5.90"></script>
-  <script src="js/roster.js?v=5.90"></script>
-  <script src="js/schedule.js?v=5.90"></script>
-  <script src="js/timetable.js?v=5.90"></script>
-  <script src="js/wheel.js?v=5.90"></script>
-  <script src="js/seating.js?v=5.90"></script>
-  <script src="js/groups.js?v=5.90"></script>
-  <script src="js/points.js?v=5.90"></script>
-  <script src="js/homework.js?v=5.90"></script>
-  <script src="js/progress.js?v=5.90"></script>
-  <script src="js/dashboard.js?v=5.90"></script>
-  <script src="js/app.js?v=5.90"></script>
+  <script src="js/storage.js?v=6.00"></script>
+  <script src="js/audio.js?v=6.00"></script>
+  <script src="js/roster.js?v=6.00"></script>
+  <script src="js/schedule.js?v=6.00"></script>
+  <script src="js/timetable.js?v=6.00"></script>
+  <script src="js/wheel.js?v=6.00"></script>
+  <script src="js/seating.js?v=6.00"></script>
+  <script src="js/groups.js?v=6.00"></script>
+  <script src="js/points.js?v=6.00"></script>
+  <script src="js/progress.js?v=6.00"></script>
+  <script src="js/dashboard.js?v=6.00"></script>
+  <script src="js/app.js?v=6.00"></script>
 </body>
 </html>
