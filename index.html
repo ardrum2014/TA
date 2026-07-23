@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="css/points.css">
   <link rel="stylesheet" href="css/homework.css">
   <link rel="stylesheet" href="css/progress.css">
-  <link rel="stylesheet" href="css/guide.css">
+  <link rel="stylesheet" href="css/guide.css?v=5.38">
 
   <!-- 本地端與第三方 JavaScript 庫 -->
   <script src="js/xlsx.full.min.js"></script>
@@ -51,7 +51,10 @@
 
       <!-- 導覽選單 -->
       <nav class="nav-menu" id="navMenu">
-        <button class="nav-item active" data-tab="schedule">
+        <button class="nav-item active" data-tab="dashboard">
+          <i class="fa-solid fa-mug-hot"></i> <span>今日儀表板</span>
+        </button>
+        <button class="nav-item" data-tab="schedule">
           <i class="fa-solid fa-clock"></i> <span>課堂提醒與計時</span>
         </button>
         <button class="nav-item" data-tab="wheel">
@@ -94,6 +97,9 @@
         <button id="themeToggleBtn" class="btn btn-outline btn-block margin-top-xs">
           <i class="fa-solid fa-moon"></i> <span>暖暗模式</span>
         </button>
+        <button id="clearAllDataBtn" class="btn btn-outline-danger btn-block margin-top-xs" style="font-size: 0.8rem; padding: 5px;" title="三重不同警告確認，安全抹除本機資料" onclick="App.clearAllDataWithTripleGuard()">
+          <i class="fa-solid fa-trash-can"></i> <span>一鍵清空全站資料</span>
+        </button>
         <div class="current-time-widget">
           <div id="sidebarDate">2026/07/21</div>
           <div id="sidebarClock" class="clock-display">08:30:00</div>
@@ -123,8 +129,12 @@
       <!-- 頁籤面板區域 -->
       <div class="content-container">
 
+        <!-- 0. 今日班務與任務指揮中心 (綜合儀表板) -->
+        <section id="dashboard" class="tab-panel active">
+        </section>
+
         <!-- 1. 課堂活動提醒與計時器整合面版 -->
-        <section id="schedule" class="tab-panel active">
+        <section id="schedule" class="tab-panel">
           <div class="panel-header">
             <h2><i class="fa-solid fa-chalkboard-user"></i> 課堂活動提醒與計時器</h2>
             <div class="panel-actions">
@@ -168,9 +178,20 @@
                 <div class="timer-big-display" id="scheduleTimerDisplay">00:00</div>
 
                 <div class="timer-controls">
-                  <button id="scheduleStartPauseBtn" class="btn btn-accent btn-lg"><i class="fa-solid fa-play"></i> 開始/暫停</button>
+                  <button id="scheduleStartPauseBtn" class="btn btn-accent btn-lg"><i class="fa-solid fa-play"></i> 開始/暫停 (Space)</button>
                   <button id="scheduleNextBtn" class="btn btn-secondary btn-lg"><i class="fa-solid fa-forward-step"></i> 切換下一項</button>
-                  <button id="scheduleResetBtn" class="btn btn-outline"><i class="fa-solid fa-rotate-left"></i> 重置</button>
+                  <button id="scheduleResetBtn" class="btn btn-outline"><i class="fa-solid fa-rotate-left"></i> 重置 (R)</button>
+                </div>
+
+                <!-- 正計時碼錶分段計圈紀錄區 (由 JS 於碼錶模式時顯示) -->
+                <div id="stopwatchLapsContainer" style="display: none; max-width: 320px; width: 90%; margin: 15px auto; padding: 12px 16px; background: rgba(244, 236, 225, 0.5); border: 1px dashed var(--border-color); border-radius: var(--radius-md); text-align: left; box-sizing: border-box;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 6px; margin-bottom: 6px;">
+                    <span style="font-weight: bold; color: var(--color-espresso); font-size: 0.9rem;"><i class="fa-solid fa-flag"></i> 紀錄時間清單</span>
+                    <button type="button" class="btn btn-sm btn-chip" style="font-size: 0.75rem; padding: 2px 8px; background: var(--bg-card); border-color: var(--border-color);" onclick="ScheduleModule.clearLaps()"><i class="fa-solid fa-trash-can"></i> 一鍵歸零</button>
+                  </div>
+                  <div id="stopwatchLapsList" style="max-height: 100px; overflow-y: auto; padding-right: 4px;">
+                    <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 10px 0;">尚無紀錄時間。</div>
+                  </div>
                 </div>
               </div>
               <div class="fullscreen-esc-tip">提示：按下 <kbd>ESC</kbd> 可隨時退出全螢幕</div>
@@ -279,6 +300,15 @@
                 <input type="checkbox" id="removeAfterWinCheck" class="form-check-input" checked>
                 <label for="removeAfterWinCheck" class="form-check-label">抽中後自動從輪盤移除該人員</label>
               </div>
+              <div class="form-check" style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <input type="checkbox" id="enableTaskCardCheck" class="form-check-input">
+                  <label for="enableTaskCardCheck" class="form-check-label">🃏 抽中時連動翻開隨機任務卡 (問答/加分)</label>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="WheelModule.showEditTaskCardsModal()" title="編輯隨機任務卡題目清單">
+                  <i class="fa-solid fa-pen"></i> 編輯任務卡
+                </button>
+              </div>
               <div class="wheel-history margin-top">
                 <h4><i class="fa-solid fa-trophy"></i> 抽中紀錄</h4>
                 <ol id="wheelWinnerHistory" class="winner-list"></ol>
@@ -299,6 +329,7 @@
               <button id="seatingRulesBtn" class="btn btn-outline" title="設定座位編排條件（例如：禁止相鄰、小老師相鄰、視力/身高前後排指定）"><i class="fa-solid fa-sliders"></i> ⚙️ 條件設定</button>
               <button id="randomizeSeatingBtn" class="btn btn-outline"><i class="fa-solid fa-shuffle"></i> 隨機編排座位</button>
               <button id="printSeatingBtn" class="btn btn-outline" title="僅列印/轉存PDF中間座位表"><i class="fa-solid fa-print"></i> 列印/轉PDF</button>
+              <button id="printA4SeatingBtn" class="btn btn-outline" title="一鍵自動排版為 A4 高清海報，適合列印張貼於教室公佈欄" onclick="SeatingModule.printA4Poster()"><i class="fa-solid fa-print"></i> 🖨️ 列印 A4 海報</button>
               <button id="exportSeatingPngBtn" class="btn btn-primary" title="匯出座位表為 PNG 圖片"><i class="fa-solid fa-file-image"></i> 下載圖片 PNG</button>
             </div>
           </div>
@@ -349,6 +380,7 @@
               <button id="saveGroupEditBtn" class="btn btn-primary hidden"><i class="fa-solid fa-floppy-disk"></i> 💾 儲存分組設定</button>
               <button id="resetLeadersBtn" class="btn btn-outline" title="將各組排第一位的學生設定為組長"><i class="fa-solid fa-crown"></i> 👑 確認第一位為組長</button>
               <button id="exportGroupsExcelBtn" class="btn btn-secondary" title="匯出學生名條與分組資訊為 Excel 評分表"><i class="fa-solid fa-file-excel"></i> 匯出分組 Excel</button>
+              <button id="printA4GroupsBtn" class="btn btn-outline" title="一鍵自動排版為 A4 高清海報，適合列印張貼於教室公佈欄" onclick="GroupsModule.printA4Poster()"><i class="fa-solid fa-print"></i> 🖨️ 列印 A4 海報</button>
               <button id="addGroupManualBtn" class="btn btn-outline"><i class="fa-solid fa-folder-plus"></i> 手動新增小組</button>
               <button id="groupsSyncToPointsBtn" class="btn btn-accent"><i class="fa-solid fa-share-nodes"></i> 同步至分組加分榜</button>
             </div>
@@ -454,6 +486,8 @@
           <div class="panel-header">
             <h2><i class="fa-solid fa-book-bookmark"></i> 課程與作業追蹤 (進度、作業與指派多班級)</h2>
             <div class="panel-actions">
+              <button id="showConsolidatedMissingBtn" class="btn btn-accent" onclick="ProgressModule.showConsolidatedMissingModal()"><i class="fa-solid fa-copy"></i> 📋 產生全科催繳單</button>
+              <button id="showProgressDashboardBtn" class="btn btn-secondary" onclick="ProgressModule.showDashboardModal()"><i class="fa-solid fa-chart-pie"></i> ⚠️ 繳交狀況分析儀表板</button>
               <button id="addProgressSubjectBtn" class="btn btn-primary" onclick="ProgressModule.addSubject()"><i class="fa-solid fa-plus"></i> 新增科目/單元</button>
               <button id="downloadProgressSampleBtn" class="btn btn-outline" title="下載進度與作業匯入 Excel 範例檔" onclick="ProgressModule.downloadSample()"><i class="fa-solid fa-download"></i> 下載匯入範例</button>
               <label for="progressExcelInput" class="btn btn-secondary" style="margin: 0; cursor: pointer;" title="批次匯入科目、章節與作業"><i class="fa-solid fa-file-import"></i> 📥 匯入進度與作業 Excel</label>
@@ -475,6 +509,7 @@
               <button id="exportTimetablePngBtn" class="btn btn-secondary" onclick="TimetableModule.exportPNG()"><i class="fa-solid fa-camera"></i> 📸 匯出課表圖片 (PNG)</button>
               <button id="exportGoogleCalendarBtn" class="btn btn-accent" title="一鍵匯出全週課表至 Google 日曆" onclick="TimetableModule.exportToICS()"><i class="fa-solid fa-calendar-plus"></i> 📤 匯出至 Google 日曆</button>
               <button id="setupPeriodTimesBtn" class="btn btn-secondary" onclick="TimetableModule.openPeriodTimesModal()"><i class="fa-solid fa-clock"></i> ⚙️ 設定節次時間</button>
+              <button id="setupCommonSubjectsBtn" class="btn btn-secondary" onclick="TimetableModule.openCommonSubjectsModal()"><i class="fa-solid fa-sliders"></i> ⚙️ 常用科目與教室</button>
               <button id="printTimetableBtn" class="btn btn-outline" onclick="TimetableModule.printTimetable()"><i class="fa-solid fa-print"></i> 🖨️ 列印課表</button>
             </div>
           </div>
@@ -570,93 +605,326 @@
           </div>
 
           <div class="guide-grid">
+            <!-- 0. 今日班務與任務指揮中心 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-mug-hot"></i></div>
+                  <h4>0. 今日班務與任務指揮中心</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>📅⏰ 獨立同排大字體展示</b>：頂部第一排高亮卡片同時顯示 `📅 今日日期 (如 2026/07/23 週四)` 與 `⏰ 實時秒數 (如 16:00:07)`，字體加大極致清晰。</li>
+                  <li><b>📚 課節與狀態動態導航</b>：實時讀取個人週課表，自動顯示當前進行課節及下一節預告。</li>
+                  <li><b>👥 班級欠交概況與選單摘要 Modal</b>：提供班級切換下拉選單（包含「全校所有班級」與單一班級），點選「🔍 瀏覽摘要」可彈出跨學科未繳名冊並一鍵複製。</li>
+                  <li><b>🔔 任務時間提醒 (含日期與 ⚠️ 已逾期檢核)</b>：支援選擇預訂日期與時間，系統自動比對時間，若任務超過預訂時間未完成自動顯示「⚠️ 已逾期」警示紅框。</li>
+                  <li><b>⚡ 極速快捷工具發射台</b>：包含催繳單、分析儀表板、幸運輪盤、計時器與加分榜快捷發射按鈕。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>掌握目前時間與課程</b>：登入網站預設進入今日儀表板，頂部第一排卡片即可一覽今日日期與實時秒數，右側可查看當前課節與下一節預告。</li>
+                  <li><b>切換檢視全校/單班缺交摘要</b>：在「班級動態概況」右上方選單切換至「全校所有班級」或指定班級，點選「🔍 瀏覽摘要」即可跳出彈窗瀏覽欠交名冊並點選「複製此摘要報告」。</li>
+                  <li><b>建立任務與時效追蹤</b>：點擊「+ 新增提醒任務」，輸入任務名稱並挑選 `預訂日期` 與 `提醒時間`。若任務超過預訂時間未完成，卡片會自動標示「⚠️ 已逾期」；完成後勾選核取方塊即可劃線歸檔。</li>
+                  <li><b>快捷工具發射</b>：點選極速發射台上的 5 個工具按鈕，可秒級切換至催繳單、輪盤、計時器、加分榜等功能。</li>
+                </ol>
+              </div>
+            </div>
+
             <!-- 1. 課堂提醒與計時器 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-clock"></i></div>
-              <h4>1. 課堂提醒與計時器</h4>
-              <ul>
-                <li><b>四大切換模式</b>：課堂流程模式、自由倒數、正計時碼錶、實時大時鐘。</li>
-                <li><b>快捷時間點擊</b>：提供 1分、3分、5分、10分、15分一鍵啟動。</li>
-                <li><b>全螢幕投影模式</b>：點擊放大按鈕 <i class="fa-solid fa-expand"></i> 填滿全螢幕，隨時按下 <kbd>ESC</kbd> 即可退出。</li>
-                <li><b>Excel 流程匯入</b>：支援解析 `預計時間`、`時長`、`主題`、`任務內容` 表單。</li>
-              </ul>
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-clock"></i></div>
+                  <h4>1. 課堂提醒與計時器</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>四大切換模式</b>：課堂流程模式、倒數計時、正計時碼錶、實時大時鐘。</li>
+                  <li><b>快捷時間點擊</b>：提供 1分、3分、5分、10分、15分一鍵啟動快捷按鍵。</li>
+                  <li><b>分段計圈與一鍵歸零</b>：在碼錶模式下支援記錄多次分段時間，並提供一鍵重設歸零。</li>
+                  <li><b>全域鍵盤快捷鍵</b>：支援空白鍵與常用字母鍵控，免去繁瑣的滑鼠點擊移動。</li>
+                  <li><b>投影放大模式</b>：全螢幕高亮展現，按 <kbd>ESC</kbd> 鍵可快速切換回主畫面。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>選擇模式與設定</b>：在頂部切換為「課堂提醒」、「倒數計時」等模式，點選快捷按鈕或調整拉桿，點擊「開始計時」。</li>
+                  <li><b>正計時碼表與快捷鍵</b>：切換至「正計時碼表」，點選「開始」。計時期間可點選「記錄時間」或按鍵盤 **<kbd>Enter</kbd> / <kbd>L</kbd>** 鍵記錄當下分段時間；按下 **<kbd>Space (空白鍵)</kbd>** 可快速開始或暫停計時；按下 **<kbd>R</kbd>** 鍵或重置按鈕可一鍵歸零時間與紀錄清單。</li>
+                  <li><b>啟用全螢幕投影</b>：點擊放大圖示 <i class="fa-solid fa-expand"></i> 進入全螢幕簡報視圖；若要關閉，按下鍵盤左上角的 <kbd>ESC</kbd> 即可退出。</li>
+                  <li><b>匯入課堂流程</b>：下載 Excel 範本填寫流程（含時間、時長、主題、內容），點擊「匯入課堂流程」上傳即可依序自動提醒授課進度。</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 2. 抹茶幸運輪盤抽籤 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-dharmachakra"></i></div>
-              <h4>2. 抹茶幸運輪盤抽籤</h4>
-              <ul>
-                <li><b>學生與小組雙重抽籤</b>：除了抽單一學生，更支援「抽分組」模式。</li>
-                <li><b>自適應分組連動</b>：抽分組時會自動讀取當前班級的實際小組組數與自訂組名，智慧分割輪盤扇區。</li>
-                <li><b>一鍵帶入與排除歷史</b>：連動班級名條，並自動記錄已中籤歷史、支援排除機制。</li>
-              </ul>
+            <!-- 2. 抹茶幸運輪盤抽籤與隨機任務卡 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-dharmachakra"></i></div>
+                  <h4>2. 抹茶幸運輪盤抽籤與隨機任務卡</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>學生與小組雙重抽籤</b>：除了抽單一學生，更支援「抽分組」模式。</li>
+                  <li><b>自適應分組連動</b>：抽分組時會自動讀取當前班級的實際小組組數與自訂組名，智慧分割輪盤扇區。</li>
+                  <li><b>🃏 隨機任務/問答卡連動</b>：提供 `[x] 抽中時連動翻開隨機任務卡` 複選框（預設關閉保留純抽籤），抽中時自動翻開挑戰卡。</li>
+                  <li><b>✏️ 客製化任務卡編輯</b>：點擊「✏️ 編輯任務卡」可跳出彈窗自訂隨機問答或加分題目庫。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>選擇抽籤類別與帶入名單</b>：選擇「抽學生」或「抽小組」模式，點擊「帶入班級名冊」載入名單。</li>
+                  <li><b>設定隨機任務卡</b>：如需課堂互動，可勾選 `[x] 抽中時連動翻開隨機任務卡`；若要修改任務題目，點選旁邊的「✏️ 編輯任務卡」於彈窗中修改題庫並儲存。</li>
+                  <li><b>旋轉開獎</b>：點擊輪盤任意處或「開始旋轉抽籤！」，輪盤轉動開獎，開獎視窗會同時顯示中籤者與隨機任務卡！</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 3. 智慧座位表編輯器 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-border-all"></i></div>
-              <h4>3. 智慧座位表與條件排座</h4>
-              <ul>
-                <li><b>滑鼠/觸控拖放對換</b>：直接拖曳學生名牌或點擊對換座位，並支援自訂網格與講台前後切換。</li>
-                <li><b>⚙️ 條件排座設定</b>：支援設定「兩人禁止相鄰(8向)」、「兩人必須相鄰(小老師)」、「指定第一排或最後一排」，並由 Heuristic CSP 限制滿足解算器自動計算出最佳排座分佈。</li>
-                <li><b>講台靠攏與大風吹</b>：空位自動推至最遠的後排；提供「整排左移/右移」一鍵大風吹循環平移。</li>
-                <li><b>卡片豐富資訊</b>：座位卡片上直觀呈現「座號」、「姓名」、「學號」與「幹部」，空位顯示位置號碼。</li>
-              </ul>
+            <!-- 3. 智慧座位表、A4海報列印與學生戰報 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-border-all"></i></div>
+                  <h4>3. 智慧座位表、A4海報列印與學生戰報</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>🔒 唯讀與 ✏️ 編輯雙模式</b>：預設為唯讀防誤觸模式，點擊「✏️ 編輯模式」解鎖名牌對換。</li>
+                  <li><b>🖨️ 列印 A4 海報</b>：一鍵將班級座位表自動排版為超大字體、美觀邊框與講台標記的 A4 橫向高清海報，適合張貼於公佈欄。</li>
+                  <li><b>🪪 學生個人綜合戰報</b>：學生名牌角角附帶 `🪪` 微型按鈕，點擊彈出戰報（含點數、座位座標、組長標記 👑、欠交作業明細與一鍵複製）。</li>
+                  <li><b>⚙️ 條件排座設定</b>：設定「禁止相鄰(8向)」、「必須相鄰(小老師)」、「指定前後排」，由 CSP 限制解算器自動排座。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>排座與編排</b>：點選「✏️ 編輯模式」解鎖。點選「⚙️ 條件設定」新增限制，點擊「隨機編排座位」自動生成，或拖曳名牌微調，點選「💾 儲存座位表」。</li>
+                  <li><b>A4 教室張貼海報列印</b>：點選工具列的「🖨️ 列印 A4 海報」，系統會開啟 A4 橫向高清列印視圖，點擊列印即可直接張貼於教室。</li>
+                  <li><b>查閱學生綜合戰報</b>：點選名牌右上角的 `🪪` 微型圖示，彈出個人綜合戰報，可點選「複製學生綜合學習報告」發送給家長。</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 4. 隨機與彈性分組工具 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-people-group"></i></div>
-              <h4>4. 隨機與彈性分組工具</h4>
-              <ul>
-                <li><b>編輯自動解鎖 (Auto-Unlock)</b>：當點擊自動分組、設定組長或新增小組時，系統會自動解鎖切換至編輯模式。</li>
-                <li><b>隨機分組與拖曳調整</b>：支援依組數/人數一鍵隨機分組，分組與組員順序在切換班級後自動儲存不丟失。</li>
-                <li><b>組別管理與組長設定</b>：支援「手動新增小組」、點擊直接修改組名，並可指定/切換組長 👑。</li>
-              </ul>
+            <!-- 4. 隨機分組工具與 A4 海報列印 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-people-group"></i></div>
+                  <h4>4. 隨機與彈性分組工具與 A4 海報列印</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>隨機分組與拖曳調整</b>：支援依組數/人數一鍵隨機分組，分組與組員順序自動儲存。</li>
+                  <li><b>組別管理與組長設定</b>：支援「手動新增小組」、點擊修改組名，並可指派唯一組長 👑。</li>
+                  <li><b>🖨️ 列印 A4 海報</b>：一鍵將小組名冊與組長表自動排版為 A4 橫向海報輸出張貼。</li>
+                  <li><b>同步至分組加分榜</b>：一鍵將分組結構對齊同步至競賽加分榜。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>執行自動分組</b>：選擇「依總組數」或「每組人數」，點選「開始自動分組」。</li>
+                  <li><b>拖曳與組長指派</b>：拖曳名牌微調組員，點擊 👑 圖示指派組長。</li>
+                  <li><b>A4 列印與同步加分</b>：點選「🖨️ 列印 A4 海報」進行張貼輸出；點選「同步至分組加分榜」對齊得分資料。</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 5. 課堂加分與競賽榜 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-star"></i></div>
-              <h4>5. 課堂加分與小組競賽榜</h4>
-              <ul>
-                <li><b>個人/小組跨班隔離</b>：卡片式加扣分，伴隨音效與慶祝動畫。小組競賽榜組數與點數依班級各自獨立。</li>
-                <li><b>整合匯出 Excel 成績單</b>：匯出學生名條時，可勾選一併整合匯出個人得分與小組得分。</li>
-                <li><b>複製排行榜與雲端備份</b>：一鍵複製格式文字或開啟 Google Drive 進行拖放備份。</li>
-                <li><b>雙階安全歸零 (v6.0 新增)</b>：歸零點數時支援「僅重設當前班級」與「清空所有班級」兩階段確認，防止誤刪他班資料。</li>
-              </ul>
+            <!-- 5. 課堂加分與小組競賽榮譽榜 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-star"></i></div>
+                  <h4>5. 課堂加分與小組競賽榮譽榜</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>🏆 依得分名次排行榜排序</b>：支援在 `[ 🔢 依座號/組別預設順序 ]` 與 `[ 🏆 依得分名次排行榜 ]` 之間一鍵切換。</li>
+                  <li><b>🥇🥈🥉 榮譽名次勳章</b>：自動計算高低分名次，為前三名頒發 **🥇 第1名**、**🥈 第2名**、**🥉 第3名** 榮譽勳章與金邊高亮外框。</li>
+                  <li><b>個人/小組跨班隔離</b>：卡片式加扣分，伴隨音效與紙花慶祝。</li>
+                  <li><b>整合匯出 Excel 成績單</b>：一鍵匯出個人得分與小組得分合併總表。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>切換加分與排行榜視圖</b>：切換「個人加分」或「分組競賽」標籤。點選頂部的「🏆 依得分名次排行榜」按鈕，卡片將自動按最高分起算排序，並標示 🥇🥈🥉 榮譽勳章！</li>
+                  <li><b>點數加扣分</b>：點擊卡片上的「+1」或「-1」按鈕進行分數調整，加分伴隨音效與紙花。</li>
+                  <li><b>匯出與歸零</b>：點選「匯出加分 Excel」下載總表；點選「點數歸零」可選擇歸零當前班級或全數班級。</li>
+                </ol>
+              </div>
             </div>
 
             <!-- 6. 作業與習作追蹤 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-book-bookmark"></i></div>
-              <h4>6. 作業與習作追蹤</h4>
-              <ul>
-                <li><b>四態標籤與精準統計</b>：未繳 ❌ ➔ 已繳 🟢 ➔ 待訂正 🟡 ➔ 補繳 🔵，已繳人數統計精確排除補繳。</li>
-                <li><b>一鍵複製未繳名單</b>：產出整理好的未繳學生名冊，方便貼至聯絡簿或班級群組。</li>
-                <li><b>檢核彈窗資訊擴展</b>：檢核彈窗中的學生資訊整合顯示學號、幹部及備註。</li>
-              </ul>
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+                  <h4>6. 作業與習作追蹤</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>四態標籤與精準統計</b>：未繳 ❌ ➔ 已繳 🟢 ➔ 待訂正 🟡 ➔ 補繳 🔵，已繳人數統計精確排除補繳。</li>
+                  <li><b>一鍵複製未繳名單</b>：產出整理好的未繳學生名冊，方便貼至聯絡簿或班級群組。</li>
+                  <li><b>檢核彈窗資訊擴展</b>：檢核彈窗中的學生資訊整合顯示學號、幹部及備註。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>建立與選取作業項目</b>：點擊「建立新作業」輸入名稱並儲存，或在下拉選單中選取現有作業。</li>
+                  <li><b>登記繳交狀態</b>：點擊學生欄位中的狀態標籤，可在「未繳 ❌」、「已繳 🟢」、「待訂正 🟡」、「補繳 🔵」四種狀態中按順序循環切換。</li>
+                  <li><b>一鍵催繳複製</b>：作業收齊期間，點選「一鍵複製未繳名單」，系統會將已整理好的未繳名條複製至剪貼簿（已繳人數會自動精準排除補繳者，不造成統計誤差）。</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 7. 課程與單元進度管理 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-bars-staggered"></i></div>
-              <h4>7. 課程與單元進度管理</h4>
-              <ul>
-                <li><b>單元清單與完成率</b>：勾選已完成章節，自動計算視覺化進度百分比條。</li>
-              </ul>
+            <!-- 7. 課程與作業追蹤整合管理 (v5.38 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-bars-staggered"></i></div>
+                  <h4>7. 課程與作業追蹤整合管理</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>卡片與手風琴展開</b>：科目卡片預設為收合狀態，點擊卡片標題任何空白處即可展開。</li>
+                  <li><b>📋 跨學科一鍵催繳單</b>：跨越所有科目，自動以座號排序彙整所有學生的 `未繳 ❌` 與 `待訂正 🟡` 明細，生成方便貼至聯絡簿的催繳文字，支援就地修改與一鍵複製。</li>
+                  <li><b>📊 座號繳交熱點圖 (Heatmap)</b>：點擊作業標籤旁的 `📊` 圖示可展開座號小方格。小方格以紅（未繳）、綠（已繳）、黃（待改）、藍（補繳）標記狀態。**點選座號格即可就地極速切換狀態**，省去彈窗操作。</li>
+                  <li><b>✏️ 就地重新命名（無損保留）</b>：點擊章節標題或作業標籤旁邊的 `✏️` 編輯按鈕，即可隨時微調名稱，並 **100% 完整保留現存學生的歷史登錄紀錄**。</li>
+                  <li><b>📋 快速套用結構範本</b>：提供「語文科經典 (14課)」、「數學科 (10單元)」、「科技與藝能科 (6單元)」範本，一鍵快速建置全學期作業與章節架構。</li>
+                  <li><b>⚠️ 繳交預警分析儀表板</b>：自動列出全班「欠交 3 件以上作業的學生名單 (欠交大戶排行)」與「各科整體授課進度條」，便於導師個別關懷。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>建立科目與套用範本</b>：點選「➕ 新增科目」輸入科目名稱（直接點擊標題文字為靜態以防誤觸，如需修改請點擊右側的「✏️ 編輯」鈕）。展開科目卡片後，可點選右上角的「📋 套用範本」一鍵快速建立整學期的課堂作業結構。</li>
+                  <li><b>進行座號熱點快速登記</b>：點擊作業名稱（如課堂練習）可以打開完整名冊大彈窗；如果需要快速修改個別座號狀態，可點選標籤旁的 `📊` 網格圖示展開座號熱點圖，直接按點座號方格進行循環狀態切換。</li>
+                  <li><b>修改章節與作業名稱</b>：若需微調文字，可點擊章節右側的「✏️」圖示或作業 Pill 中的「✏️」按鈕進行無損更名（右側的刪除按鈕已拉開安全間距並附帶視覺分隔線，以防止誤觸）。</li>
+                  <li><b>產出全科催繳單與預警分析</b>：點選控制列最頂端的「📋 產生全科催繳單」可自動生成便於發送的未繳總清單；點選「⚠️ 繳交狀況分析儀表板」則可隨時檢視各科進度與缺交大戶排行榜。</li>
+                </ol>
+              </div>
             </div>
 
-            <!-- 8. 名條管理與全站備份 -->
-            <div class="card guide-card">
-              <div class="guide-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-              <h4>8. 名條管理與全站雲端備份/還原</h4>
-              <ul>
-                <li><b>手動編輯與排序座號</b>：在網頁上可直接修改學生姓名、學號、幹部、備註四欄，支援拖放或按鈕重新排序，存檔後自動重編座號並全站連動。</li>
-                <li><b>Excel 名條多班級匯入</b>：支援解析 CSV, XLS, XLSX，相容南寧高中公假系統格式。</li>
-                <li><b>全站備份與還原 (`.json`)</b>：一鍵備份全站資料至本機，更換電腦時一鍵匯入即可全數還原！</li>
-              </ul>
+            <!-- 8. 名條管理與全站雲端備份/還原 -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                  <h4>8. 名條管理與全站雲端備份/還原</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>手動編輯與排序座號</b>：在網頁上可直接修改學生姓名、學號、幹部、備註四欄，支援拖放或按鈕重新排序，存檔後自動重編座號並全站連動。</li>
+                  <li><b>Excel 名條多班級匯入</b>：支援解析 CSV, XLS, XLSX，相容南寧高中公假系統格式。</li>
+                  <li><b>全站備份與還原 (`.json`)</b>：一鍵備份全站資料至本機，更換電腦時一鍵匯入即可全數還原！</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>Excel 多班名冊匯入</b>：下載名條範本填寫，或直接解析南寧高中公假系統 CSV/XLS 表單，點選「選擇名條檔案」即可秒級載入全班名冊。</li>
+                  <li><b>手動增修與排序名冊</b>：點擊「✏️ 編輯學生資料與排序」，可直接就地修改學生的學號、幹部與備註；透過滑鼠拖放或點選上下按鈕可調整學生順序，點選「💾 儲存修改」後，系統會自動按最新排序重編 1..N 的座號並全站生效！</li>
+                  <li><b>全站備份與還原移轉</b>：更換電腦或定期存檔時，點選側邊欄底部的「備份全站」下載 `.json` 還原檔；在新電腦中點選「📥 匯入還原」選擇此檔案，即可一秒將分組、座位、加分、進度等所有班級資料全數還原。</li>
+                </ol>
+              </div>
+            </div>
+
+            <!-- 9. 教師個人週課表與常用科目教室 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                  <h4>9. 教師個人週課表與常用科目教室</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>⚙️ 常用科目與教室彈窗管理</b>：點選工具列「⚙️ 設定節次時間」旁邊的「⚙️ 常用科目與教室」，跳出 Modal 視窗輸入用半形逗號分隔的常用科目與地點。</li>
+                  <li><b>學期與本週雙層登錄</b>：平常點擊可記錄本週「代課/調課」備註（跨週自動清空），編輯模式可設定學期固定課表與地點。</li>
+                  <li><b>即時提醒與快捷切換</b>：側邊欄即時提醒目前/下一節課班級、科目與代課資訊，課表格子提供一鍵直達班級切換按鈕。</li>
+                  <li><b>ICS 匯出與 Google 日曆同步</b>：可將個人課表一鍵打包為 ICS 檔匯入 Google 日曆，或線上同步。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>自訂常用清單與編排課表</b>：點選頂部「⚙️ 常用科目與教室」按鈕跳出彈窗，輸入常用科目與教室儲存。點選「✏️ 編輯學期課表」，在格子中選擇班級與常用科目地點。</li>
+                  <li><b>登錄本週代課調課備註</b>：非編輯狀態點擊格子，可填寫「本週代課/請假備註」（跨週全自動清空重置）。</li>
+                  <li><b>一鍵切換當前班級</b>：點選格子內的「🚀 切換此班」，全站切換至該班。</li>
+                  <li><b>匯出 Google 行事曆</b>：點選「匯出至 Google 日曆」生成 `.ics` 檔匯入 Google 日曆。</li>
+                </ol>
+              </div>
+            </div>
+
+            <!-- 10. 🌙 暖暗護眼模式與主題體驗 (v5.60 升級版) -->
+            <div class="card guide-card" onclick="this.classList.toggle('expanded')">
+              <div class="guide-card-header">
+                <div class="guide-card-title-group">
+                  <div class="guide-icon"><i class="fa-solid fa-moon"></i></div>
+                  <h4>10. 🌙 暖暗護眼模式與配色體驗</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="guide-hint" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(點擊展開)</span>
+                  <span class="guide-toggle-icon" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="guide-details">
+                <div style="font-weight: bold; color: var(--color-espresso); margin-bottom: 8px;">🌟 功能特點：</div>
+                <ul>
+                  <li><b>咖啡館夜間主題 (Espresso Dark)</b>：專為低光與夜間備課設計的暖暗護眼配色，高對比且不刺眼。</li>
+                  <li><b>一鍵切換與本機記憶</b>：點擊側邊欄底部的 `🌙 暖暗模式` 即可隨時切換，系統會自動儲存偏好。</li>
+                </ul>
+                <div style="font-weight: bold; color: var(--color-espresso); margin-top: 12px; margin-bottom: 8px; border-top: 1px dashed var(--border-color); padding-top: 12px;">🛠️ 操作流程說明：</div>
+                <ol style="padding-left: 20px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6; margin: 0;">
+                  <li><b>開關切換</b>：在左側側邊欄最下方，點擊「🌙 暖暗模式」切換至咖啡館暗色主題。</li>
+                  <li><b>恢復日照模式</b>：再次點擊「☀️ 暖光模式」即可恢復溫暖日照配色。</li>
+                </ol>
+              </div>
             </div>
           </div>
 
@@ -707,17 +975,18 @@
   </div>
 
   <!-- JavaScript 主控邏輯模組 -->
-  <script src="js/storage.js?v=5.20"></script>
-  <script src="js/audio.js?v=5.20"></script>
-  <script src="js/roster.js?v=5.20"></script>
-  <script src="js/schedule.js?v=5.20"></script>
-  <script src="js/timetable.js?v=5.20"></script>
-  <script src="js/wheel.js?v=5.20"></script>
-  <script src="js/seating.js?v=5.20"></script>
-  <script src="js/groups.js?v=5.20"></script>
-  <script src="js/points.js?v=5.20"></script>
-  <script src="js/homework.js?v=5.20"></script>
-  <script src="js/progress.js?v=5.20"></script>
-  <script src="js/app.js?v=5.20"></script>
+  <script src="js/storage.js?v=5.90"></script>
+  <script src="js/audio.js?v=5.90"></script>
+  <script src="js/roster.js?v=5.90"></script>
+  <script src="js/schedule.js?v=5.90"></script>
+  <script src="js/timetable.js?v=5.90"></script>
+  <script src="js/wheel.js?v=5.90"></script>
+  <script src="js/seating.js?v=5.90"></script>
+  <script src="js/groups.js?v=5.90"></script>
+  <script src="js/points.js?v=5.90"></script>
+  <script src="js/homework.js?v=5.90"></script>
+  <script src="js/progress.js?v=5.90"></script>
+  <script src="js/dashboard.js?v=5.90"></script>
+  <script src="js/app.js?v=5.90"></script>
 </body>
 </html>

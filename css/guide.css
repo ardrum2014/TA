@@ -22,9 +22,11 @@
   background-color: var(--bg-card);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  padding: 20px;
+  padding: 16px 20px;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
+  cursor: pointer;
+  user-select: none;
 }
 
 .guide-card:hover {
@@ -33,26 +35,75 @@
   border-color: var(--color-amber);
 }
 
+.guide-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.guide-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .guide-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-md);
   background-color: var(--bg-secondary);
   color: var(--color-amber);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  margin-bottom: 12px;
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .guide-card h4 {
   font-family: var(--font-family-title);
   font-size: 1.2rem;
   color: var(--color-espresso);
-  margin-bottom: 10px;
-  border-bottom: 1px dashed var(--border-color);
-  padding-bottom: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.guide-card .guide-toggle-icon i {
+  transition: transform 0.3s ease;
+}
+
+.guide-card .guide-details {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px dashed transparent;
+}
+
+/* 展開狀態 */
+.guide-card.expanded {
+  border-color: var(--color-amber);
+  background-color: var(--bg-main); /* 展開時卡片底色微調以示高亮 */
+}
+
+.guide-card.expanded .guide-toggle-icon i {
+  transform: rotate(180deg);
+  color: var(--color-amber);
+}
+
+.guide-card.expanded .guide-details {
+  max-height: 1200px;
+  opacity: 1;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top-color: var(--border-color);
+}
+
+.guide-card.expanded .guide-hint {
+  display: none;
 }
 
 .guide-card ul {
@@ -60,6 +111,7 @@
   font-size: 0.95rem;
   color: var(--text-main);
   line-height: 1.6;
+  margin: 0;
 }
 
 .guide-card li {
@@ -99,4 +151,39 @@
 
 .margin-bottom {
   margin-bottom: 20px;
+}
+
+/* 暖暗/夜間護眼模式主題切換 (Cozy Dark Theme Overrides) */
+body.theme-cozy-dark,
+[data-theme="dark"] {
+  --bg-primary: #1e1b18;
+  --bg-secondary: #28231e;
+  --bg-card: #322b24;
+  --text-main: #f5ebe0;
+  --text-muted: #c2b3a3;
+  --border-color: #483d34;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --color-espresso: #e6ccb2;
+}
+
+body.theme-cozy-dark,
+[data-theme="dark"] body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+}
+
+body.theme-cozy-dark .card,
+[data-theme="dark"] .card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+body.theme-cozy-dark .form-control,
+body.theme-cozy-dark .form-select,
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  border-color: var(--border-color);
 }

@@ -30,11 +30,18 @@ const SeatingModule = {
       this.seatingMap = {};
     }
     const saved = this.seatingMap[activeClass];
+    const students = StorageManager.getActiveClassStudents();
     if (saved && saved.seats && saved.seats.length > 0) {
       this.rows = saved.rows || 5;
       this.cols = saved.cols || 6;
       this.seats = saved.seats;
       this.rules = saved.rules || [];
+      
+      const totalSeats = this.rows * this.cols;
+      if (students.length > totalSeats) {
+        alert(`⚠️ 警示：目前班級人數為 ${students.length} 人，但座位表格子僅有 ${totalSeats} 個（${this.rows}行 × ${this.cols}列）！\n\n部分學生將無座位。請先在「編輯模式」下修改「網格大小」來加大座位表。`);
+      }
+
       const podiumPos = saved.podiumPosition || 'top';
       const podiumSelect = document.getElementById('podiumPosition');
       if (podiumSelect) podiumSelect.value = podiumPos;
@@ -91,6 +98,12 @@ const SeatingModule = {
       }
       const r = parseInt(document.getElementById('seatRows').value, 10) || 5;
       const c = parseInt(document.getElementById('seatCols').value, 10) || 6;
+      
+      const students = StorageManager.getActiveClassStudents();
+      if (r * c < students.length) {
+        return alert(`⚠️ 警示：設定的網格大小 (${r} 行 × ${c} 列 = ${r * c} 個座位) 小於目前班級人數 (${students.length} 人)！請設定更大的網格大小，否則部分學生將無座位。`);
+      }
+
       this.rows = r;
       this.cols = c;
       this.saveActiveSeating();
@@ -258,8 +271,12 @@ const SeatingModule = {
   autoLoadFromRoster() {
     const students = StorageManager.getActiveClassStudents();
     const totalSeats = this.rows * this.cols;
-    this.seats = new Array(totalSeats).fill(null);
 
+    if (students.length > totalSeats) {
+      alert(`⚠️ 警示：目前班級人數為 ${students.length} 人，但座位格子僅有 ${totalSeats} 個（${this.rows}行 × ${this.cols}列）！\n\n部分學生將無法被分配到座位。請先在「編輯模式」下修改「網格大小」來加大座位表。`);
+    }
+
+    this.seats = new Array(totalSeats).fill(null);
     students.forEach((st, idx) => {
       if (idx < totalSeats) {
         this.seats[idx] = st;
@@ -788,13 +805,77 @@ const SeatingModule = {
                ondrop="SeatingModule.handleSeatDrop(event, ${i})"
                onclick="SeatingModule.handleSeatClick(${i})"
              ` : 'title="目前為 🔒 唯讀防誤觸模式（點擊右上角「✏️ 編輯模式」進行修改）"'} >
-          <div class="seat-number">${student ? `座號 ${student.number}` : `#${i + 1}`}</div>
-          <div class="seat-name">${student ? student.name : '（空位）'}</div>
-          ${student ? `<div class="seat-info" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${student.note || ''}${student.cadre ? ` | ${student.cadre}` : ''}</div>` : ''}
-        </div>
-      `;
-    }
+           <div class="seat-number" style="display:flex; justify-content:space-between; align-items:center;">
+             <span>${student ? `座號 ${student.number}` : `#${i + 1}`}</span>
+             ${student ? `<button type="button" style="border:none; background:transparent; cursor:pointer; font-size:0.75rem; padding:0 2px;" title="查看學生綜合戰報" onclick="event.stopPropagation(); window.showStudentProfileModal('${student.id}')">🪪</button>` : ''}
+           </div>
+           <div class="seat-name">${student ? student.name : '（空位）'}</div>
+           ${student ? `<div class="seat-info" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${student.note || ''}${student.cadre ? ` | ${student.cadre}` : ''}</div>` : ''}
+         </div>
+       `;
+     }
 
-    grid.innerHTML = html;
-  }
-};
+     grid.innerHTML = html;
+   },
+
+   printA4Poster() {
+     const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+     const seatingData = StorageManager.get(StorageManager.KEYS.SEATING, {});
+     const classSeating = seatingData[activeClass];
+     if (!classSeating || !classSeating.grid) return alert('目前班級尚未建立座位表！');
+
+     const printWin = window.open('', '_blank', 'width=1000,height=800');
+     if (!printWin) return alert('請允許開啟彈出視窗以進行 A4 列印！');
+
+     const rows = classSeating.rows || 5;
+     const cols = classSeating.cols || 6;
+     const grid = classSeating.grid;
+     const podiumPos = classSeating.podiumPosition || 'top';
+
+     let gridHtml = '';
+     for (let r = 1; r <= rows; r++) {
+       for (let c = 1; c <= cols; c++) {
+         const key = `${r}_${c}`;
+         const st = grid[key];
+         gridHtml += `
+           <div style="border: 2px solid #333; padding: 12px 6px; text-align: center; border-radius: 8px; background: #fff;">
+             <div style="font-size: 13pt; font-weight: bold; color: #555;">${st ? `座號 ${st.number}` : `#${(r-1)*cols + c}`}</div>
+             <div style="font-size: 18pt; font-weight: bold; margin: 6px 0; color: #000;">${st ? st.name : '（空位）'}</div>
+             <div style="font-size: 10pt; color: #666;">${st ? (st.note || st.cadre || '') : ''}</div>
+           </div>
+         `;
+       }
+     }
+
+     printWin.document.write(`
+       <!DOCTYPE html>
+       <html>
+       <head>
+         <title>${activeClass} 班級座位表 (A4海報列印)</title>
+         <style>
+           @page { size: A4 landscape; margin: 15mm; }
+           body { font-family: 'Iansui', 'Microsoft JhengHei', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; }
+           .header { text-align: center; margin-bottom: 15px; }
+           .header h1 { margin: 0; font-size: 24pt; letter-spacing: 2px; }
+           .header p { margin: 4px 0 0 0; font-size: 11pt; color: #555; }
+           .podium { text-align: center; padding: 8px; border: 2px dashed #666; margin: 10px auto 16px auto; width: 60%; font-size: 15pt; font-weight: bold; background: #f0f0f0; border-radius: 6px; }
+           .grid { display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 10px; }
+         </style>
+       </head>
+       <body>
+         <div class="header">
+           <h1>🏫 【${activeClass}】班級座位表</h1>
+           <p>列印日期：${new Date().toLocaleDateString('zh-TW')} | 南寧咖啡館教師智慧小手帳</p>
+         </div>
+         ${podiumPos === 'top' ? '<div class="podium">📺 講台 / 黑板區</div>' : ''}
+         <div class="grid">${gridHtml}</div>
+         ${podiumPos === 'bottom' ? '<div class="podium" style="margin-top:16px;">📺 講台 / 黑板區</div>' : ''}
+         <script>
+           window.onload = () => { window.print(); };
+         </script>
+       </body>
+       </html>
+     `);
+     printWin.document.close();
+   }
+ };

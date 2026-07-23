@@ -695,5 +695,57 @@ const GroupsModule = {
     }).join('');
 
     container.innerHTML = html;
+  },
+
+  printA4Poster() {
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    if (!this.groups || this.groups.length === 0) return alert('目前班級尚未建立任何小組！');
+
+    const printWin = window.open('', '_blank', 'width=1000,height=800');
+    if (!printWin) return alert('請允許開啟彈出視窗以進行 A4 列印！');
+
+    let groupsHtml = '';
+    this.groups.forEach((g, idx) => {
+      const memberNames = (g.members || []).map(m => `#${m.number || ''} ${m.name} ${m.id === g.leaderId ? '(👑組長)' : ''}`).join('<br>');
+
+      groupsHtml += `
+        <div style="border: 2px solid #333; padding: 14px; border-radius: 8px; background: #fff;">
+          <h3 style="margin: 0 0 10px 0; font-size: 16pt; border-bottom: 2px dashed #666; padding-bottom: 6px; color: #000;">
+            ${g.name || `第 ${idx + 1} 組`}
+          </h3>
+          <div style="font-size: 12pt; line-height: 1.8; color: #222;">
+            ${memberNames || '（暫無組員）'}
+          </div>
+        </div>
+      `;
+    });
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${activeClass} 班級小組分組表 (A4張貼版)</title>
+        <style>
+          @page { size: A4 landscape; margin: 15mm; }
+          body { font-family: 'Iansui', 'Microsoft JhengHei', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .header h1 { margin: 0; font-size: 24pt; letter-spacing: 2px; }
+          .header p { margin: 4px 0 0 0; font-size: 11pt; color: #555; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🏫 【${activeClass}】班級小組名冊與組長表</h1>
+          <p>列印日期：${new Date().toLocaleDateString('zh-TW')} | 南寧咖啡館教師智慧小手帳</p>
+        </div>
+        <div class="grid">${groupsHtml}</div>
+        <script>
+          window.onload = () => { window.print(); };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
   }
 };

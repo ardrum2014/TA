@@ -36,18 +36,12 @@
 .subject-title {
   font-size: 1.15rem;
   font-weight: bold;
-  cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
   margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: color var(--transition-fast);
-}
-
-.subject-title:hover {
-  color: var(--color-amber);
+  gap: 8px;
 }
 
 .progress-bar-container {

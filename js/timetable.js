@@ -13,6 +13,13 @@ const TimetableModule = {
       this.data = StorageManager.getDefaultTimetable();
       StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
     }
+    
+    if (!this.data.commonSubjects) {
+      this.data.commonSubjects = ['生活科技', '資訊科技', '生物科技', '專題研究', '彈性學習', '班會與導師時間', '社團活動'];
+    }
+    if (!this.data.commonLocations) {
+      this.data.commonLocations = ['生科教室', '電腦教室', '理化實驗室', '圖書館', '501教室', '生科準備室', '會議室'];
+    }
 
     // 跨週自動檢查並清空過期代課註記
     this.checkAndClearExpiredSubstitutes();
@@ -72,6 +79,86 @@ const TimetableModule = {
     if (modified) {
       StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
     }
+  },
+
+  saveCommonSettings() {
+    if (!this.data) {
+      this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+    }
+
+    const subInput = document.getElementById('commonSubjectsInput');
+    const locInput = document.getElementById('commonLocationsInput');
+
+    if (subInput && locInput) {
+      const subs = subInput.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      const locs = locInput.value.split(',').map(l => l.trim()).filter(l => l.length > 0);
+
+      this.data.commonSubjects = subs.length > 0 ? subs : ['生活科技', '資訊科技', '生物科技', '專題研究', '彈性學習', '班會與導師時間', '社團活動'];
+      this.data.commonLocations = locs.length > 0 ? locs : ['生科教室', '電腦教室', '理化實驗室', '圖書館', '501教室', '生科準備室', '會議室'];
+
+      StorageManager.set(StorageManager.KEYS.TIMETABLE, this.data);
+      alert('🎉 已成功儲存常用科目與教室清單！');
+    }
+  },
+
+  syncCommonInputs() {
+    const subInput = document.getElementById('commonSubjectsInput');
+    const locInput = document.getElementById('commonLocationsInput');
+    if (subInput && locInput && this.data) {
+      subInput.value = (this.data.commonSubjects || []).join(',');
+      locInput.value = (this.data.commonLocations || []).join(',');
+    }
+  },
+
+  openCommonSubjectsModal() {
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    if (!this.data) {
+      this.data = StorageManager.get(StorageManager.KEYS.TIMETABLE, StorageManager.getDefaultTimetable());
+    }
+
+    const currentSubs = (this.data.commonSubjects || []).join(',');
+    const currentLocs = (this.data.commonLocations || []).join(',');
+
+    modalTitle.textContent = `⚙️ 管理常用科目與教室清單`;
+    modalBody.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 0.95rem; color: var(--text-main);">
+        <p style="margin: 0; color: var(--text-muted); font-size: 0.88rem;">
+          在此可自由編輯課表選單中的常用科目與教室名稱，項目之間請用半形逗號（,）分隔。
+        </p>
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">常用科目 (半形逗號分隔)：</label>
+          <input type="text" id="commonSubjectsInput" class="form-control" value="${currentSubs}" placeholder="生活科技,資訊科技,生物科技..." style="width: 100%;">
+        </div>
+        <div>
+          <label style="font-weight: bold; margin-bottom: 4px; display: block;">常用教室 (半形逗號分隔)：</label>
+          <input type="text" id="commonLocationsInput" class="form-control" value="${currentLocs}" placeholder="生科教室,電腦教室,理化實驗室..." style="width: 100%;">
+        </div>
+        <div style="font-size: 0.82rem; color: var(--color-amber); background: var(--bg-secondary); padding: 8px 12px; border-radius: 6px;">
+          💡 提示：設定完成後，點選課表格子編輯時即可一鍵快速套用選取！
+        </div>
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '💾 儲存常用設定';
+    confirmBtn.className = 'btn btn-primary';
+
+    const closeModal = () => { backdrop.classList.add('hidden'); };
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    confirmBtn.onclick = () => {
+      this.saveCommonSettings();
+      closeModal();
+    };
   },
 
   saveData() {
@@ -765,6 +852,7 @@ const TimetableModule = {
     `;
 
     container.innerHTML = html;
+    this.syncCommonInputs();
   },
 
   // 快捷切換當前班級
@@ -918,12 +1006,40 @@ const TimetableModule = {
 
         <div>
           <label style="font-weight: bold; margin-bottom: 4px; display: block;">固定科目 / 活動名稱：</label>
-          <input type="text" id="cellSubject" class="form-control" value="${cell.subject || ''}" placeholder="例如：生活科技、資訊科技、班會">
+          <input type="text" id="cellSubject" list="commonSubjectsList" class="form-control" value="${cell.subject || ''}" placeholder="例如：生活科技、資訊科技、班會">
+          <datalist id="commonSubjectsList">
+            ${(this.data.commonSubjects || []).map(sub => `<option value="${sub}">`).join('')}
+          </datalist>
         </div>
 
         <div>
           <label style="font-weight: bold; margin-bottom: 4px; display: block;">固定教室 / 上課地點：</label>
-          <input type="text" id="cellLocation" class="form-control" value="${cell.location || ''}" placeholder="例如：生科教室、電腦教室">
+          <input type="text" id="cellLocation" list="commonLocationsList" class="form-control" value="${cell.location || ''}" placeholder="例如：生科教室、電腦教室">
+          <datalist id="commonLocationsList">
+            ${(this.data.commonLocations || []).map(loc => `<option value="${loc}">`).join('')}
+          </datalist>
+        </div>
+
+        <!-- 常用項目快捷管理展開區域 -->
+        <div style="border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 4px;">
+          <details>
+            <summary style="font-size: 0.85rem; color: var(--color-espresso); cursor: pointer; font-weight: bold; user-select: none;">
+              ⚙️ 管理常用科目與教室清單
+            </summary>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding: 10px; background: var(--bg-secondary); border-radius: 6px;">
+              <div>
+                <label style="font-size: 0.82rem; font-weight: bold; display: block; margin-bottom: 4px;">常用科目 (半形逗號分隔)：</label>
+                <input type="text" id="manageCommonSubjects" class="form-control" value="${(this.data.commonSubjects || []).join(',')}" placeholder="項目間請用半形逗號 , 分隔">
+              </div>
+              <div>
+                <label style="font-size: 0.82rem; font-weight: bold; display: block; margin-bottom: 4px;">常用教室 (半形逗號分隔)：</label>
+                <input type="text" id="manageCommonLocations" class="form-control" value="${(this.data.commonLocations || []).join(',')}" placeholder="項目間請用半形逗號 , 分隔">
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">
+                💡 修改後點擊下方的「儲存學期課表」，清單即會同步更新。
+              </div>
+            </div>
+          </details>
         </div>
       </form>
     `;
@@ -943,6 +1059,17 @@ const TimetableModule = {
       const className = document.getElementById('cellClassName').value.trim();
       const subject = document.getElementById('cellSubject').value.trim();
       const location = document.getElementById('cellLocation').value.trim();
+
+      // 讀取更新的常用清單
+      const subInput = document.getElementById('manageCommonSubjects')?.value.trim();
+      const locInput = document.getElementById('manageCommonLocations')?.value.trim();
+
+      if (subInput !== undefined) {
+        this.data.commonSubjects = subInput.split(',').map(s => s.trim()).filter(s => s !== '');
+      }
+      if (locInput !== undefined) {
+        this.data.commonLocations = locInput.split(',').map(s => s.trim()).filter(s => s !== '');
+      }
 
       if (!className) {
         delete this.data.grid[cellKey];

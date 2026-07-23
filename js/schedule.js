@@ -7,6 +7,8 @@ const ScheduleModule = {
   isRunning: false,
   currentIndex: 0,
   schedules: [],
+  stopwatchStartTime: 0,
+  stopwatchElapsedTime: 0,
 
   mode: 'flow', // 'flow' | 'freeCountdown' | 'stopwatch'
 
@@ -73,9 +75,13 @@ const ScheduleModule = {
       this.toggleTimer();
     });
 
-    // 切換下一項
+    // 切換下一項 / 記錄時間
     document.getElementById('scheduleNextBtn')?.addEventListener('click', () => {
-      this.nextSchedule();
+      if (this.mode === 'stopwatch') {
+        this.recordLap();
+      } else {
+        this.nextSchedule();
+      }
     });
 
     // 重置
@@ -155,6 +161,40 @@ const ScheduleModule = {
       ];
       StorageManager.exportExcel(sample, '課堂活動流程範例檔.xlsx');
     });
+
+    // 全域鍵盤快捷鍵 (當目前處於「課堂提醒與計時」頁籤，且無正在編輯的 input)
+    window.addEventListener('keydown', (e) => {
+      // 1. 檢查目前是否處於計時器分頁 (其 tab-panel id 為 schedule)
+      const schedulePanel = document.getElementById('schedule');
+      if (!schedulePanel || !schedulePanel.classList.contains('active')) {
+        return;
+      }
+
+      // 2. 避免與正在輸入的 input/textarea/select 衝突
+      const tag = e.target.tagName.toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) {
+        return;
+      }
+
+      // 3. 執行快捷鍵對應
+      // 空白鍵 -> 開始 / 暫停
+      if (e.code === 'Space') {
+        e.preventDefault(); // 阻止空白鍵捲動網頁
+        this.toggleTimer();
+      }
+      // L 鍵 或 Enter 鍵 -> 記錄時間 (碼表模式)
+      else if (e.code === 'KeyL' || e.code === 'Enter') {
+        if (this.mode === 'stopwatch') {
+          e.preventDefault();
+          this.recordLap();
+        }
+      }
+      // R 鍵 -> 重置 / 歸零
+      else if (e.code === 'KeyR') {
+        e.preventDefault();
+        this.resetTimer();
+      }
+    });
   },
 
   // 切換模式 (課堂流程 / 自由倒數 / 正計時碼錶 / 現在時間)
@@ -172,11 +212,22 @@ const ScheduleModule = {
     const presets = document.getElementById('integratedPresets');
     const controls = document.querySelector('.timer-controls');
     const tagEl = document.getElementById('activityCardTag');
+    const nextBtn = document.getElementById('scheduleNextBtn');
+    const lapsContainer = document.getElementById('stopwatchLapsContainer');
+
+    // 連動顯示/隱藏計圈紀錄面板
+    if (lapsContainer) {
+      lapsContainer.style.display = (newMode === 'stopwatch') ? 'block' : 'none';
+    }
 
     if (newMode === 'flow') {
       if (tagEl) tagEl.textContent = '課堂流程進行中';
       if (presets) presets.style.display = 'none';
       if (controls) controls.style.display = 'flex';
+      if (nextBtn) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.innerHTML = `<i class="fa-solid fa-forward-step"></i> 切換下一項`;
+      }
       if (this.schedules[this.currentIndex]) {
         this.loadScheduleIndex(this.currentIndex);
       } else {
@@ -189,6 +240,9 @@ const ScheduleModule = {
       if (tagEl) tagEl.textContent = '自由倒數';
       if (presets) presets.style.display = 'flex';
       if (controls) controls.style.display = 'flex';
+      if (nextBtn) {
+        nextBtn.style.display = 'none'; // 自由倒數不需要此按鈕
+      }
       if (topicEl) topicEl.textContent = '⏱️ 自由倒數計時';
       if (taskEl) taskEl.textContent = '請點選快捷時間或於右側即時輸入...';
       this.remainingSeconds = 300;
@@ -197,9 +251,14 @@ const ScheduleModule = {
       if (tagEl) tagEl.textContent = '正計時碼錶';
       if (presets) presets.style.display = 'none';
       if (controls) controls.style.display = 'flex';
+      if (nextBtn) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.innerHTML = `<i class="fa-solid fa-flag"></i> 記錄時間 (L/Enter)`;
+      }
       if (topicEl) topicEl.textContent = '⏱️ 正計時碼錶';
       if (taskEl) taskEl.textContent = '點擊「開始」即刻啟動碼表...';
       this.remainingSeconds = 0;
+      this.clearLaps();
       this.updateDisplay();
     } else if (newMode === 'clock') {
       if (tagEl) tagEl.textContent = '實時時鐘';
@@ -268,16 +327,11 @@ const ScheduleModule = {
     this.updateDisplay();
 
     this.timerId = setInterval(() => {
-      if (this.mode === 'stopwatch') {
-        this.remainingSeconds++;
+      if (this.remainingSeconds > 0) {
+        this.remainingSeconds--;
         this.updateDisplay();
       } else {
-        if (this.remainingSeconds > 0) {
-          this.remainingSeconds--;
-          this.updateDisplay();
-        } else {
-          this.onTimerFinish();
-        }
+        this.onTimerFinish();
       }
     }, 1000);
   },
@@ -300,41 +354,118 @@ const ScheduleModule = {
     const btn = document.getElementById('scheduleStartPauseBtn');
 
     if (this.isRunning) {
-      if (btn) btn.innerHTML = `<i class="fa-solid fa-pause"></i> 暫停`;
-      this.timerId = setInterval(() => {
-        if (this.mode === 'stopwatch') {
-          this.remainingSeconds++;
+      if (btn) btn.innerHTML = `<i class="fa-solid fa-pause"></i> 暫停 (Space)`;
+      
+      if (this.mode === 'stopwatch') {
+        this.stopwatchStartTime = Date.now();
+        this.timerId = setInterval(() => {
           this.updateDisplay();
-        } else {
+        }, 30); // 30ms 確保流暢的 1/100 秒顯示，且效能極佳
+      } else {
+        this.timerId = setInterval(() => {
           if (this.remainingSeconds > 0) {
             this.remainingSeconds--;
             this.updateDisplay();
           } else {
             this.onTimerFinish();
           }
-        }
-      }, 1000);
+        }, 1000);
+      }
     } else {
-      if (btn) btn.innerHTML = `<i class="fa-solid fa-play"></i> 繼續`;
+      if (btn) btn.innerHTML = `<i class="fa-solid fa-play"></i> 繼續 (Space)`;
       clearInterval(this.timerId);
+      if (this.mode === 'stopwatch') {
+        this.stopwatchElapsedTime += Date.now() - this.stopwatchStartTime;
+      }
     }
   },
 
   stopTimer() {
     clearInterval(this.timerId);
+    if (this.isRunning && this.mode === 'stopwatch') {
+      this.stopwatchElapsedTime += Date.now() - this.stopwatchStartTime;
+    }
     this.isRunning = false;
     const btn = document.getElementById('scheduleStartPauseBtn');
-    if (btn) btn.innerHTML = `<i class="fa-solid fa-play"></i> 開始`;
+    if (btn) btn.innerHTML = `<i class="fa-solid fa-play"></i> 開始 (Space)`;
   },
 
   resetTimer() {
+    // 安全防護確認：防誤觸重設
+    if (this.mode === 'stopwatch') {
+      const hasLaps = this.laps && this.laps.length > 0;
+      if (hasLaps || this.isRunning) {
+        const msg = hasLaps 
+          ? '⏱️ 確定要重置計時器嗎？這將會完全清空目前所有的「紀錄時間清單」且無法復原！' 
+          : '⏱️ 碼表正在計時中，確定要中斷並重置歸零嗎？';
+        if (!confirm(msg)) return;
+      }
+    } else {
+      if (this.isRunning) {
+        if (!confirm('⏳ 倒數計時正在進行中，確定要中斷並重新重置時間嗎？')) {
+          return;
+        }
+      }
+    }
+
     this.stopTimer();
-    if (this.schedules[this.currentIndex]) {
+    if (this.mode === 'stopwatch') {
+      this.stopwatchElapsedTime = 0;
+      this.stopwatchStartTime = 0;
+      this.clearLaps();
+    } else if (this.schedules[this.currentIndex]) {
       this.remainingSeconds = this.schedules[this.currentIndex].minutes * 60;
     } else {
       this.remainingSeconds = 600;
     }
     this.updateDisplay();
+  },
+
+  recordLap() {
+    if (!this.laps) {
+      this.laps = [];
+    }
+    let elapsed = this.stopwatchElapsedTime || 0;
+    if (this.isRunning && this.stopwatchStartTime) {
+      elapsed += Date.now() - this.stopwatchStartTime;
+    }
+    const formatted = this.formatStopwatch(elapsed);
+    this.laps.push(formatted);
+    this.renderLaps();
+  },
+
+  formatStopwatch(ms) {
+    const totalSecs = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSecs / 60);
+    const seconds = totalSecs % 60;
+    const hundredths = Math.floor((ms % 1000) / 10);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
+  },
+
+  renderLaps() {
+    const listEl = document.getElementById('stopwatchLapsList');
+    const containerEl = document.getElementById('stopwatchLapsContainer');
+    if (!listEl || !containerEl) return;
+
+    if (!this.laps || this.laps.length === 0) {
+      listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 10px 0;">尚無紀錄時間。</div>';
+      return;
+    }
+
+    listEl.innerHTML = this.laps.map((lap, index) => `
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed rgba(0,0,0,0.06); font-size: 0.9rem;">
+        <span style="color: var(--color-leaf-green); font-weight: bold;"><i class="fa-solid fa-circle-check"></i> 第 ${index + 1} 次完成</span>
+        <span style="color: var(--color-espresso); font-weight: bold; font-family: monospace;">⏱️ ${lap}</span>
+      </div>
+    `).join('');
+
+    // Auto-scroll to the bottom of the list
+    listEl.scrollTop = listEl.scrollHeight;
+  },
+
+  clearLaps() {
+    this.laps = [];
+    this.renderLaps();
   },
 
   nextSchedule() {
@@ -359,9 +490,18 @@ const ScheduleModule = {
   },
 
   updateDisplay() {
-    const mins = Math.floor(this.remainingSeconds / 60);
-    const secs = this.remainingSeconds % 60;
-    const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    let formatted = "";
+    if (this.mode === 'stopwatch') {
+      let elapsed = this.stopwatchElapsedTime || 0;
+      if (this.isRunning && this.stopwatchStartTime) {
+        elapsed += Date.now() - this.stopwatchStartTime;
+      }
+      formatted = this.formatStopwatch(elapsed);
+    } else {
+      const mins = Math.floor(this.remainingSeconds / 60);
+      const secs = this.remainingSeconds % 60;
+      formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
 
     const display = document.getElementById('scheduleTimerDisplay');
     const topDisplay = document.getElementById('topCountdownDisplay');

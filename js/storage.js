@@ -19,6 +19,8 @@ const StorageManager = {
   // 預設教師個人課表 (標準中學8節課次與預設課表結構)
   getDefaultTimetable() {
     return {
+      commonSubjects: ['生活科技', '資訊科技', '生物科技', '專題研究', '彈性學習', '班會與導師時間', '社團活動'],
+      commonLocations: ['生科教室', '電腦教室', '理化實驗室', '圖書館', '501教室', '生科準備室', '會議室'],
       periods: [
         { period: 1, name: '第一節', startTime: '08:10', endTime: '09:00' },
         { period: 2, name: '第二節', startTime: '09:10', endTime: '10:00' },

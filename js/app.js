@@ -17,7 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. 全域班級選單事件連動
   initGlobalClassSelector();
 
-  // 5. 初始化 9 大功能模組
+  // 5. 初始化 10 大功能模組
+  if (typeof DashboardModule !== 'undefined') {
+    DashboardModule.init();
+    DashboardModule.render();
+  }
   RosterModule.init();
   ScheduleModule.init();
   WheelModule.init();
@@ -29,39 +33,90 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof TimetableModule !== 'undefined') TimetableModule.init();
 });
 
+// 全域 App 輔助全域發射器
+const App = {
+  switchTab(targetTab) {
+    const navItems = document.querySelectorAll('.nav-item');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    navItems.forEach(i => {
+      if (i.dataset.tab === targetTab) i.classList.add('active');
+      else i.classList.remove('active');
+    });
+    panels.forEach(p => p.classList.remove('active'));
+
+    const panel = document.getElementById(targetTab);
+    if (panel) panel.classList.add('active');
+
+    if (targetTab === 'dashboard' && typeof DashboardModule !== 'undefined') {
+      DashboardModule.render();
+    } else if (targetTab === 'progress' && typeof ProgressModule !== 'undefined') {
+      if (typeof ProgressModule.collapseAll === 'function') {
+        ProgressModule.collapseAll();
+      }
+      ProgressModule.render();
+    } else if (targetTab === 'timetable' && typeof TimetableModule !== 'undefined') {
+      TimetableModule.renderGrid();
+      TimetableModule.updateSidebarWidget();
+    } else if (targetTab === 'seating' && typeof SeatingModule !== 'undefined') {
+      SeatingModule.render();
+    } else if (targetTab === 'groups' && typeof GroupsModule !== 'undefined') {
+      GroupsModule.render();
+    } else if (targetTab === 'points' && typeof PointsModule !== 'undefined') {
+      PointsModule.render();
+    } else if (targetTab === 'roster' && typeof RosterModule !== 'undefined') {
+      RosterModule.renderRosterTable();
+    }
+
+    document.getElementById('sidebar')?.classList.remove('show');
+  },
+
+  clearAllDataWithTripleGuard() {
+    const confirm1 = confirm(
+      "⚠️【第 1/3 關確認 - 刪除全站本機資料警告】\n\n" +
+      "您確定要「一鍵抹除全站所有本機資料」嗎？\n\n" +
+      "📌 此動作將會清空：\n" +
+      " 1. 所有班級名冊與學生資料\n" +
+      " 2. 班級座位表與排座限制設定\n" +
+      " 3. 隨機分組名冊與組長指派\n" +
+      " 4. 個人加分與小組競賽排行榜\n" +
+      " 5. 課程進度、章節與作業繳交紀錄\n" +
+      " 6. 教師個人週課表與代課調課備註\n\n" +
+      "點擊「確定」將進入第 2 關驗證，點擊「取消」終止操作。"
+    );
+    if (!confirm1) return;
+
+    const confirm2 = confirm(
+      "🚨【第 2/3 關確認 - 資料無法復原警告】\n\n" +
+      "請特別注意：一旦清空，所有本機儲存資料將【永久無法復原】！\n\n" +
+      "💡 建議您：如果尚未備份，請先點選側邊欄的「備份全站」下載 .json 檔案備份。\n\n" +
+      "若您已經備份或確定不需要這些資料，請點擊「確定」進入最終確認關卡。"
+    );
+    if (!confirm2) return;
+
+    const finalInput = prompt(
+      "🛑【第 3/3 關最終確認 - 輸入防護驗證】\n\n" +
+      "為防止誤觸，請在下方輸入框中填入：『清除所有資料』\n" +
+      "（請精準輸入這 6 個字，系統才會正式執行全站重置清空）"
+    );
+
+    if (finalInput !== '清除所有資料') {
+      alert('❌ 輸入不符，操作已取消。您的全站資料安全保留，未做任何修改。');
+      return;
+    }
+
+    localStorage.clear();
+    alert('🗑️ 全站本機資料已成功徹底抹除清空！系統即將重新載入預設初始狀態。');
+    location.reload();
+  }
+};
+
 // 頁籤導覽
 function initTabs() {
   const navItems = document.querySelectorAll('.nav-item');
-  const panels = document.querySelectorAll('.tab-panel');
-
   navItems.forEach(btn => {
     btn.addEventListener('click', () => {
-      const targetTab = btn.dataset.tab;
-      navItems.forEach(i => i.classList.remove('active'));
-      panels.forEach(p => p.classList.remove('active'));
-
-      btn.classList.add('active');
-      const panel = document.getElementById(targetTab);
-      if (panel) panel.classList.add('active');
-
-      // 觸發切換目標頁面之即時動態渲染 (徹底防止畫面空白)
-      if (targetTab === 'progress' && typeof ProgressModule !== 'undefined') {
-        ProgressModule.render();
-      } else if (targetTab === 'timetable' && typeof TimetableModule !== 'undefined') {
-        TimetableModule.renderGrid();
-        TimetableModule.updateSidebarWidget();
-      } else if (targetTab === 'seating' && typeof SeatingModule !== 'undefined') {
-        SeatingModule.render();
-      } else if (targetTab === 'groups' && typeof GroupsModule !== 'undefined') {
-        GroupsModule.render();
-      } else if (targetTab === 'points' && typeof PointsModule !== 'undefined') {
-        PointsModule.render();
-      } else if (targetTab === 'roster' && typeof RosterModule !== 'undefined') {
-        RosterModule.renderRosterTable();
-      }
-
-      // 手機版自動關閉側邊欄
-      document.getElementById('sidebar')?.classList.remove('show');
+      App.switchTab(btn.dataset.tab);
     });
   });
 

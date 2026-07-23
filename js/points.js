@@ -227,6 +227,13 @@ const PointsModule = {
     }
   },
 
+  sortMode: 'default', // 'default' | 'rank'
+
+  toggleSortMode(mode) {
+    this.sortMode = mode;
+    this.render();
+  },
+
   render() {
     this.renderIndividual();
     this.renderTeam();
@@ -236,17 +243,62 @@ const PointsModule = {
     const container = document.getElementById('studentPointsGrid');
     if (!container) return;
 
-    const students = StorageManager.getActiveClassStudents();
+    let students = StorageManager.getActiveClassStudents().map(st => ({
+      ...st,
+      score: this.individualScores[st.id] || 0
+    }));
+
     if (students.length === 0) {
       container.innerHTML = `<div class="text-center text-muted" style="grid-column: 1 / -1; padding: 20px;">請先在名條管理中建立學生名冊。</div>`;
       return;
     }
 
-    container.innerHTML = students.map(st => {
-      const score = this.individualScores[st.id] || 0;
+    // 計算名次資訊 (最高分起算)
+    const rankedStudents = [...students].sort((a, b) => b.score - a.score || a.number - b.number);
+    const rankMap = {};
+    let currentRank = 1;
+    rankedStudents.forEach((st, idx) => {
+      if (idx > 0 && st.score < rankedStudents[idx - 1].score) {
+        currentRank = idx + 1;
+      }
+      rankMap[st.id] = currentRank;
+    });
+
+    if (this.sortMode === 'rank') {
+      students = rankedStudents;
+    }
+
+    const getRankBadge = (rank, score) => {
+      if (score === 0) return `<span class="badge badge-secondary" style="font-size:0.75rem;">無加分</span>`;
+      if (rank === 1) return `<span class="badge" style="background:#ffd700; color:#4a3e3d; font-weight:bold; font-size:0.8rem;"><i class="fa-solid fa-crown"></i> 🥇 第 1 名</span>`;
+      if (rank === 2) return `<span class="badge" style="background:#c0c0c0; color:#222; font-weight:bold; font-size:0.8rem;">🥈 第 2 名</span>`;
+      if (rank === 3) return `<span class="badge" style="background:#cd7f32; color:#fff; font-weight:bold; font-size:0.8rem;">🥉 第 3 名</span>`;
+      return `<span class="badge badge-outline" style="font-size:0.78rem;">第 ${rank} 名</span>`;
+    };
+
+    let html = `
+      <div style="grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: var(--bg-secondary); padding: 8px 14px; border-radius: 8px;">
+        <span style="font-size: 0.9rem; font-weight: bold; color: var(--color-espresso);">
+          <i class="fa-solid fa-ranking-star"></i> 個人分數排序模式：
+        </span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-sm ${this.sortMode === 'default' ? 'btn-primary' : 'btn-outline'}" onclick="PointsModule.toggleSortMode('default')">🔢 依座號順序</button>
+          <button class="btn btn-sm ${this.sortMode === 'rank' ? 'btn-primary' : 'btn-outline'}" onclick="PointsModule.toggleSortMode('rank')">🏆 依得分名次排行榜</button>
+        </div>
+      </div>
+    `;
+
+    html += students.map(st => {
+      const score = st.score;
+      const rank = rankMap[st.id];
+      const isTop3 = score > 0 && rank <= 3;
+
       return `
-        <div class="student-point-card">
-          <div class="student-point-name">#${st.number} ${st.name}</div>
+        <div class="student-point-card" style="${isTop3 ? 'border: 2px solid var(--color-amber); background: var(--bg-card);' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;">
+            <div class="student-point-name">#${st.number} ${st.name}</div>
+            ${getRankBadge(rank, score)}
+          </div>
           <div class="student-point-score">${score > 0 ? '+' + score : score}</div>
           <div class="point-btn-group">
             <button class="btn btn-sm btn-outline-danger" onclick="PointsModule.changeStudentPoint('${st.id}', -1)">-1</button>
@@ -255,6 +307,8 @@ const PointsModule = {
         </div>
       `;
     }).join('');
+
+    container.innerHTML = html;
   },
 
   renderTeam() {
@@ -266,15 +320,61 @@ const PointsModule = {
       return;
     }
 
-    container.innerHTML = this.teamGroups.map((g, idx) => `
-      <div class="team-point-card">
-        <h3>${g.name}</h3>
-        <div class="team-point-score">${g.score || 0}</div>
-        <div class="point-btn-group">
-          <button class="btn btn-lg btn-outline-danger" onclick="PointsModule.changeTeamPoint(${idx}, -1)">-1</button>
-          <button class="btn btn-lg btn-accent" onclick="PointsModule.changeTeamPoint(${idx}, 1)">+1分</button>
+    let groups = this.teamGroups.map((g, idx) => ({ ...g, originalIdx: idx }));
+
+    // 計算組別名次
+    const rankedGroups = [...groups].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const rankMap = {};
+    let currentRank = 1;
+    rankedGroups.forEach((g, idx) => {
+      if (idx > 0 && (g.score || 0) < (rankedGroups[idx - 1].score || 0)) {
+        currentRank = idx + 1;
+      }
+      rankMap[g.originalIdx] = currentRank;
+    });
+
+    if (this.sortMode === 'rank') {
+      groups = rankedGroups;
+    }
+
+    const getTeamRankBadge = (rank, score) => {
+      if (!score || score === 0) return `<span class="badge badge-secondary" style="font-size:0.75rem;">無加分</span>`;
+      if (rank === 1) return `<span class="badge" style="background:#ffd700; color:#4a3e3d; font-weight:bold; font-size:0.8rem;"><i class="fa-solid fa-crown"></i> 🥇 第 1 名</span>`;
+      if (rank === 2) return `<span class="badge" style="background:#c0c0c0; color:#222; font-weight:bold; font-size:0.8rem;">🥈 第 2 名</span>`;
+      if (rank === 3) return `<span class="badge" style="background:#cd7f32; color:#fff; font-weight:bold; font-size:0.8rem;">🥉 第 3 名</span>`;
+      return `<span class="badge badge-outline" style="font-size:0.78rem;">第 ${rank} 名</span>`;
+    };
+
+    let html = `
+      <div style="grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: var(--bg-secondary); padding: 8px 14px; border-radius: 8px;">
+        <span style="font-size: 0.9rem; font-weight: bold; color: var(--color-espresso);">
+          <i class="fa-solid fa-ranking-star"></i> 小組得分排序模式：
+        </span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-sm ${this.sortMode === 'default' ? 'btn-primary' : 'btn-outline'}" onclick="PointsModule.toggleSortMode('default')">🔢 依預設組別順序</button>
+          <button class="btn btn-sm ${this.sortMode === 'rank' ? 'btn-primary' : 'btn-outline'}" onclick="PointsModule.toggleSortMode('rank')">🏆 依得分名次排行榜</button>
         </div>
       </div>
-    `).join('');
+    `;
+
+    html += groups.map(g => {
+      const rank = rankMap[g.originalIdx];
+      const isTop3 = g.score > 0 && rank <= 3;
+      return `
+        <div class="team-point-card" style="${isTop3 ? 'border: 2px solid var(--color-amber); background: var(--bg-card);' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;">
+            <h3 style="margin:0;">${g.name}</h3>
+            ${getTeamRankBadge(rank, g.score)}
+          </div>
+          <div class="team-point-score">${g.score || 0}</div>
+          <div class="point-btn-group">
+            <button class="btn btn-lg btn-outline-danger" onclick="PointsModule.changeTeamPoint(${g.originalIdx}, -1)">-1</button>
+            <button class="btn btn-lg btn-accent" onclick="PointsModule.changeTeamPoint(${g.originalIdx}, 1)">+1分</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
   }
 };

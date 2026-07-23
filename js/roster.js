@@ -527,6 +527,9 @@ const RosterModule = {
           <td><span class="student-tag" style="background-color: rgba(76, 140, 82, 0.1); color: var(--color-leaf-green); font-weight: 500;">${st.cadre || '-'}</span></td>
           <td><span class="student-tag" style="background-color: rgba(217, 119, 6, 0.08);">${st.remarks || '-'}</span></td>
           <td>
+            <button class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 0.8rem; margin-right: 4px;" title="檢視個人綜合戰報" onclick="RosterModule.showStudentProfileModal('${st.id}')">
+              🪪 戰報
+            </button>
             <button class="btn btn-sm btn-outline-danger" onclick="RosterModule.deleteStudent('${st.id}')">
               <i class="fa-solid fa-trash"></i> 刪除
             </button>
@@ -555,5 +558,137 @@ const RosterModule = {
         this.saveActiveStudents(students);
       }
     }
+  },
+
+  showStudentProfileModal(studentId) {
+    const activeClass = StorageManager.get(StorageManager.KEYS.ACTIVE_CLASS, '501班');
+    const students = StorageManager.getActiveClassStudents();
+    const st = students.find(s => s.id === studentId);
+    if (!st) return;
+
+    // 1. 撈取個人點數
+    const pointsData = StorageManager.get(StorageManager.KEYS.POINTS, {});
+    const classPoints = pointsData[activeClass] || {};
+    const personalPoints = classPoints.students ? (classPoints.students[st.id] || 0) : 0;
+
+    // 2. 撈取座位表座標
+    let seatPosStr = '未安排座位';
+    const seatingData = StorageManager.get(StorageManager.KEYS.SEATING, {});
+    const classSeating = seatingData[activeClass];
+    if (classSeating && classSeating.grid) {
+      for (const [key, student] of Object.entries(classSeating.grid)) {
+        if (student && student.id === st.id) {
+          const [r, c] = key.split('_');
+          seatPosStr = `第 ${r} 行 / 第 ${c} 列`;
+          break;
+        }
+      }
+    }
+
+    // 3. 撈取小組資訊
+    let groupStr = '未分組';
+    const groupsData = StorageManager.get(StorageManager.KEYS.GROUPS, {});
+    const classGroups = groupsData[activeClass] || [];
+    classGroups.forEach(grp => {
+      if ((grp.members || []).some(m => m.id === st.id)) {
+        const isLeader = grp.leaderId === st.id;
+        groupStr = `${grp.name} ${isLeader ? '(👑 組長)' : ''}`;
+      }
+    });
+
+    // 4. 撈取欠繳/待訂正作業
+    const progressMap = StorageManager.get(StorageManager.KEYS.PROGRESS, {});
+    const subjects = progressMap[activeClass] || [];
+    const missingItems = [];
+
+    subjects.forEach(sub => {
+      (sub.chapters || []).forEach(ch => {
+        (ch.homeworks || []).forEach(hw => {
+          const status = hw.records[st.id] || 'missing';
+          if (status === 'missing' || status === 'correcting') {
+            missingItems.push({
+              subjectTitle: sub.title.replace(/📐|📖|🧪|🎨/g, '').trim(),
+              chapterName: ch.name,
+              hwTitle: hw.title,
+              status: status === 'missing' ? '未繳 ❌' : '待訂正 🟡'
+            });
+          }
+        });
+      });
+    });
+
+    // 5. 渲染彈窗
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `🪪 【${activeClass}】#${st.number} ${st.name} 學生綜合戰報`;
+
+    const reportText = `📢 【${activeClass}】座號 #${st.number} ${st.name} 個人學習戰報：\n` +
+      `----------------------------------\n` +
+      `・學號：${st.學號 || st.note || '-'}\n` +
+      `・幹部/職務：${st.幹部 || st.cadre || '無'}\n` +
+      `・座位位置：${seatPosStr}\n` +
+      `・所屬小組：${groupStr}\n` +
+      `・累計獲獎點數：${personalPoints} 分\n` +
+      `----------------------------------\n` +
+      `欠繳/待訂正作業明細 (${missingItems.length} 件)：\n` +
+      (missingItems.length === 0 ? '  🎉 所有作業皆已繳交完畢！\n' : missingItems.map(m => `  👉 ${m.subjectTitle}：${m.chapterName} - ${m.hwTitle} (${m.status})`).join('\n')) +
+      `\n----------------------------------\n` +
+      `發送時間：${StorageManager.getFormattedTimestamp()}`;
+
+    modalBody.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div><b>座號：</b> #${st.number}</div>
+          <div><b>姓名：</b> ${st.name}</div>
+          <div><b>學號：</b> ${st.學號 || st.note || '-'}</div>
+          <div><b>幹部：</b> ${st.幹部 || st.cadre || '無'}</div>
+          <div><b>座位：</b> ${seatPosStr}</div>
+          <div><b>小組：</b> ${groupStr}</div>
+          <div><b>累計點數：</b> <b style="color:var(--color-terracotta);">${personalPoints} 分</b></div>
+        </div>
+
+        <div style="font-weight: bold; color: var(--color-espresso);">
+          ⚠️ 欠繳與待訂正作業紀錄 (${missingItems.length} 件)：
+        </div>
+        <div style="max-height: 160px; overflow-y: auto; padding: 10px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.88rem;">
+          ${missingItems.length === 0 ? `
+            <div style="color: var(--color-leaf-green); font-weight: bold;">🎉 太棒了！該生目前所有作業皆已收齊繳交！</div>
+          ` : missingItems.map(m => `
+            <div style="margin-bottom: 4px; color: var(--text-main);">
+              👉 <b>${m.subjectTitle}</b>：${m.chapterName} - ${m.hwTitle} <span style="color: #d9534f; font-weight: bold;">(${m.status})</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="text-align: right; margin-top: 6px;">
+          <button class="btn btn-accent" id="copyStudentProfileReportBtn"><i class="fa-solid fa-copy"></i> 複製學生綜合學習報告</button>
+        </div>
+      </div>
+    `;
+
+    backdrop.style.display = 'flex';
+    confirmBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = 'inline-block';
+
+    const copyBtn = document.getElementById('copyStudentProfileReportBtn');
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(reportText).then(() => {
+          alert(`🎉 已成功複製【${st.name}】的綜合學習報告至剪貼簿！`);
+        }).catch(() => {
+          alert(reportText);
+        });
+      };
+    }
   }
 };
+
+window.showStudentProfileModal = (stId) => RosterModule.showStudentProfileModal(stId);

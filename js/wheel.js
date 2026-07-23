@@ -291,6 +291,64 @@ const WheelModule = {
     this.showWinnerOverlay(winner, index);
   },
 
+  getTaskCards() {
+    const saved = StorageManager.get('cozy_teacher_task_cards');
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+    return [
+      '📖 朗讀課文第一段或重點內容',
+      '❓ 解答黑板上的練習題或回答老師提問',
+      '⭐ 幫所屬小組全體加 2 分！',
+      '🤝 邀請一位同學共同完成任務 (Pass卡)',
+      '🎤 發表 30 秒的單元觀念心得'
+    ];
+  },
+
+  saveTaskCards(tasksArr) {
+    StorageManager.set('cozy_teacher_task_cards', tasksArr);
+  },
+
+  showEditTaskCardsModal() {
+    const tasks = this.getTaskCards();
+
+    const modalBody = document.getElementById('modalBody');
+    const modalTitle = document.getElementById('modalTitle');
+    const backdrop = document.getElementById('modalBackdrop');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+
+    if (!backdrop || !modalBody) return;
+
+    modalTitle.textContent = `🃏 編輯輪盤隨機任務/問答卡內容`;
+    modalBody.innerHTML = `
+      <div style="font-size: 0.95rem; color: var(--text-main); margin-bottom: 8px;">
+        請輸入隨機任務卡題目（一列一項）：
+      </div>
+      <textarea id="taskCardsTextarea" style="width: 100%; height: 200px; font-size: 0.95rem; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-main); resize: vertical; box-sizing: border-box;">${tasks.join('\n')}</textarea>
+      <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">
+        💡 提示：抽中學生或小組時，系統將從上方列表中隨機翻出一張任務卡。
+      </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    confirmBtn.textContent = '💾 儲存任務卡';
+    confirmBtn.className = 'btn btn-primary';
+
+    const closeModal = () => { backdrop.classList.add('hidden'); };
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+
+    confirmBtn.onclick = () => {
+      const text = document.getElementById('taskCardsTextarea').value;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) return alert('任務卡內容不能完全空白！');
+
+      this.saveTaskCards(lines);
+      closeModal();
+      alert('🎉 已成功儲存客製化隨機任務卡清單！');
+    };
+  },
+
   showWinnerOverlay(winner, index) {
     const nameEl = document.getElementById('winnerOverlayName');
     const subEl = document.getElementById('winnerOverlaySub');
@@ -299,6 +357,9 @@ const WheelModule = {
 
     if (nameEl) nameEl.textContent = winner;
 
+    const enableTaskCard = document.getElementById('enableTaskCardCheck')?.checked;
+    const defaultTasks = this.getTaskCards();
+
     if (this.mode === 'group') {
       if (subEl) subEl.textContent = '🎉 恭 喜 小 組 抽 中';
       const groups = StorageManager.get(StorageManager.KEYS.GROUPS, []);
@@ -306,7 +367,7 @@ const WheelModule = {
       if (g && g.members && g.members.length > 0) {
         const memberNames = g.members.map(m => m.name).join('、');
         if (detailsEl) {
-          detailsEl.textContent = `成員：${memberNames}`;
+          detailsEl.innerHTML = `成員：${memberNames}` + (enableTaskCard ? `<div style="margin-top:8px; padding:6px 10px; background:var(--bg-secondary); border-radius:6px; border:1px solid var(--border-color); color:var(--color-terracotta); font-weight:bold; font-size:0.95rem;">🃏 隨機任務：${defaultTasks[Math.floor(Math.random() * defaultTasks.length)]}</div>` : '');
           detailsEl.classList.remove('hidden');
         }
       } else {
@@ -314,7 +375,13 @@ const WheelModule = {
       }
     } else {
       if (subEl) subEl.textContent = '恭 喜 抽 中';
-      if (detailsEl) detailsEl.classList.add('hidden');
+      if (enableTaskCard && detailsEl) {
+        const randomTask = defaultTasks[Math.floor(Math.random() * defaultTasks.length)];
+        detailsEl.innerHTML = `<div style="margin-top:8px; padding:6px 10px; background:var(--bg-secondary); border-radius:6px; border:1px solid var(--border-color); color:var(--color-terracotta); font-weight:bold; font-size:0.95rem;">🃏 隨機任務：${randomTask}</div>`;
+        detailsEl.classList.remove('hidden');
+      } else if (detailsEl) {
+        detailsEl.classList.add('hidden');
+      }
     }
 
     if (overlay) overlay.classList.remove('hidden');
